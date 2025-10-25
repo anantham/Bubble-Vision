@@ -34,6 +34,9 @@ final class ARCoordinator: NSObject, ObservableObject {
     // Add after existing properties
     private let motionCoupler = MotionCoupler()
 
+    // In ARCoordinator class, add property:
+    private var filmPlaneBuilder: FilmPlaneBuilder?
+
     // MARK: - File URLs
 
     private var worldMapURL: URL {
@@ -69,6 +72,11 @@ final class ARCoordinator: NSObject, ObservableObject {
 
         motionCoupler.start()
 
+        // In setupARView or similar:
+        if let device = MTLCreateSystemDefaultDevice() {
+            filmPlaneBuilder = FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
+        }
+
         statusMessage = "Scanning environment..."
     }
 
@@ -98,6 +106,11 @@ final class ARCoordinator: NSObject, ObservableObject {
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
 
         motionCoupler.start()
+
+        // In setupARView or similar:
+        if let device = MTLCreateSystemDefaultDevice() {
+            filmPlaneBuilder = FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
+        }
 
         // Load saved bubbles
         if let bubblesData = try? Data(contentsOf: sessionURL),
@@ -144,6 +157,18 @@ final class ARCoordinator: NSObject, ObservableObject {
         guard let arView = arView,
               let frame = arView.session.currentFrame,
               isReady else { return }
+
+        // Test: Create film plane
+        if let builder = filmPlaneBuilder,
+           let filmEntity = try? builder.createFilmPlane(cameraTransform: frame.camera.transform) {
+
+            // Add to scene
+            let anchor = AnchorEntity(world: frame.camera.transform)
+            anchor.addChild(filmEntity)
+            arView.scene.addAnchor(anchor)
+
+            print("✓ Film plane created")
+        }
 
         // Check bubble cap
         if sessionState.bubbles.count >= maxBubbles {
