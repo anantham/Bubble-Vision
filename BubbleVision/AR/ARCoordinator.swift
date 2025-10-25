@@ -31,10 +31,7 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     private let maxBubbles = 100
 
-    // Add after existing properties
     private let motionCoupler = MotionCoupler()
-
-    // In ARCoordinator class, add property:
     private var filmPlaneBuilder: FilmPlaneBuilder?
 
     // MARK: - File URLs
@@ -47,6 +44,17 @@ final class ARCoordinator: NSObject, ObservableObject {
     private var sessionURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("session.json")
+    }
+
+    // MARK: - Private Helpers
+
+    /// Setup film plane builder with Metal device
+    private func setupFilmPlaneBuilder() {
+        if let device = MTLCreateSystemDefaultDevice() {
+            filmPlaneBuilder = FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
+        } else {
+            print("⚠️ Failed to create Metal device - film plane features disabled")
+        }
     }
 
     // MARK: - Session Lifecycle
@@ -71,11 +79,7 @@ final class ARCoordinator: NSObject, ObservableObject {
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
 
         motionCoupler.start()
-
-        // In setupARView or similar:
-        if let device = MTLCreateSystemDefaultDevice() {
-            filmPlaneBuilder = FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
-        }
+        setupFilmPlaneBuilder()
 
         statusMessage = "Scanning environment..."
     }
@@ -106,11 +110,7 @@ final class ARCoordinator: NSObject, ObservableObject {
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
 
         motionCoupler.start()
-
-        // In setupARView or similar:
-        if let device = MTLCreateSystemDefaultDevice() {
-            filmPlaneBuilder = FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
-        }
+        setupFilmPlaneBuilder()
 
         // Load saved bubbles
         if let bubblesData = try? Data(contentsOf: sessionURL),
@@ -159,15 +159,19 @@ final class ARCoordinator: NSObject, ObservableObject {
               isReady else { return }
 
         // Test: Create film plane
-        if let builder = filmPlaneBuilder,
-           let filmEntity = try? builder.createFilmPlane(cameraTransform: frame.camera.transform) {
+        if let builder = filmPlaneBuilder {
+            do {
+                let filmEntity = try builder.createFilmPlane(cameraTransform: frame.camera.transform)
 
-            // Add to scene
-            let anchor = AnchorEntity(world: frame.camera.transform)
-            anchor.addChild(filmEntity)
-            arView.scene.addAnchor(anchor)
+                // Add to scene
+                let anchor = AnchorEntity(world: frame.camera.transform)
+                anchor.addChild(filmEntity)
+                arView.scene.addAnchor(anchor)
 
-            print("✓ Film plane created")
+                print("✓ Film plane created")
+            } catch {
+                print("⚠️ Failed to create film plane: \(error)")
+            }
         }
 
         // Check bubble cap
