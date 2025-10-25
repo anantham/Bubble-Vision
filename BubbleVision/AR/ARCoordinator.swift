@@ -31,6 +31,9 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     private let maxBubbles = 100
 
+    // Add after existing properties
+    private let motionCoupler = MotionCoupler()
+
     // MARK: - File URLs
 
     private var worldMapURL: URL {
@@ -64,6 +67,8 @@ final class ARCoordinator: NSObject, ObservableObject {
         arView.session.delegate = self
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
 
+        motionCoupler.start()
+
         statusMessage = "Scanning environment..."
     }
 
@@ -91,6 +96,8 @@ final class ARCoordinator: NSObject, ObservableObject {
         arView.automaticallyConfigureSession = false
         arView.session.delegate = self
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+
+        motionCoupler.start()
 
         // Load saved bubbles
         if let bubblesData = try? Data(contentsOf: sessionURL),
@@ -243,6 +250,9 @@ final class ARCoordinator: NSObject, ObservableObject {
 
 extension ARCoordinator: ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        // Update motion coupling
+        motionCoupler.update(from: frame)
+
         // Determine tracking state
         let trackingOK: Bool = {
             if case .normal = frame.camera.trackingState {
