@@ -36,6 +36,10 @@ final class ARCoordinator: NSObject, ObservableObject {
     private let pathTracker = PathTracker()
     private var trailSlices: [ModelEntity] = []
 
+    // Trail mode state
+    @Published public var isTrailMode: Bool = false
+    public var sliceCount: Int { trailSlices.count }
+
     // MARK: - File URLs
 
     private var worldMapURL: URL {
@@ -282,41 +286,83 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     // MARK: - Trail Tracking
 
-    func startTrail() {
-        guard let frame = arView?.session.currentFrame else { return }
-        pathTracker.startTracking(
-            initialTransform: frame.camera.transform,
-            timestamp: frame.timestamp
-        )
-        print("▶ Trail tracking started")
+    func toggleTrailMode() {
+        isTrailMode.toggle()
+
+        if isTrailMode {
+            // Entering trail mode
+            guard let frame = arView?.session.currentFrame else { return }
+            pathTracker.startTracking(
+                initialTransform: frame.camera.transform,
+                timestamp: frame.timestamp
+            )
+
+            // Spawn initial slice immediately (so user sees something)
+            spawnSlice(at: frame.camera.transform)
+
+            // Haptic feedback for mode toggle
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+
+            print("▶ Trail mode ACTIVATED (slice spawned at current position)")
+        } else {
+            // Exiting trail mode
+            endTrail()
+
+            // Haptic feedback for mode toggle
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.warning)
+        }
+    }
+
+    private func spawnSlice(at transform: simd_float4x4) {
+        guard let builder = filmPlaneBuilder else { return }
+
+        do {
+            let filmEntity = try builder.createFilmPlane(cameraTransform: transform)
+            let anchor = AnchorEntity(world: transform)
+            anchor.addChild(filmEntity)
+            arView?.scene.addAnchor(anchor)
+            trailSlices.append(filmEntity)
+
+            // Subtle haptic on slice spawn
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+
+            print("• Slice spawned (\(trailSlices.count) total)")
+        } catch {
+            print("⚠️ Failed to create film plane slice: \(error)")
+        }
     }
 
     func updateTrail() {
         guard let frame = arView?.session.currentFrame else { return }
         if pathTracker.update(transform: frame.camera.transform, timestamp: frame.timestamp) {
-            // Spawn new film plane slice
-            if let builder = filmPlaneBuilder {
-                do {
-                    let filmEntity = try builder.createFilmPlane(cameraTransform: frame.camera.transform)
-
-                    // Create world anchor
-                    let anchor = AnchorEntity(world: frame.camera.transform)
-                    anchor.addChild(filmEntity)
-                    arView?.scene.addAnchor(anchor)
-
-                    trailSlices.append(filmEntity)
-                    print("• Slice added (\(trailSlices.count) total)")
-                } catch {
-                    print("⚠️ Failed to create film plane slice: \(error)")
-                }
-            }
+            spawnSlice(at: frame.camera.transform)
         }
     }
 
     func endTrail() {
         let path = pathTracker.stopTracking()
-        print("■ Trail tracking stopped (\(path.count) samples)")
-        // TODO: Finalize trail geometry
+        print("■ Trail mode DEACTIVATED (\(path.count) samples, \(trailSlices.count) slices)")
+        // TODO: Finalize trail geometry (Phase 3: seam softening)
+    }
+
+    func clearAllSlices() {
+        let count = trailSlices.count
+        guard count > 0 else { return }
+
+        // Remove all trail slices from scene
+        trailSlices.forEach { slice in
+            slice.parent?.removeFromParent()
+        }
+        trailSlices.removeAll()
+
+        // Haptic feedback
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+
+        print("🗑️ Cleared \(count) slices")
     }
 }
 
