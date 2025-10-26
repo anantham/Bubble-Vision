@@ -42,6 +42,7 @@ public final class FilmPlaneBuilder {
             in: library
         )
 
+        // Using .lit model - iOS 26 API compatible alternative to .physicallyBased
         return try CustomMaterial(
             surfaceShader: surfaceShader,
             lightingModel: .lit
@@ -50,6 +51,7 @@ public final class FilmPlaneBuilder {
 
     enum MaterialError: Error {
         case libraryLoadFailed
+        case shaderNotFound  // Reserved for future shader validation
     }
 
     // MARK: - Mesh Generation
