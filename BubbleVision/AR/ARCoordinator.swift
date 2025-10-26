@@ -33,6 +33,7 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     private let motionCoupler = MotionCoupler()
     private var filmPlaneBuilder: FilmPlaneBuilder?
+    private let pathTracker = PathTracker()
 
     // MARK: - File URLs
 
@@ -277,6 +278,31 @@ final class ARCoordinator: NSObject, ObservableObject {
         bubbleCount = sessionState.bubbles.count
         print("♻️ Reconstructed \(bubbleCount) bubbles")
     }
+
+    // MARK: - Trail Tracking
+
+    func startTrail() {
+        guard let frame = arView?.session.currentFrame else { return }
+        pathTracker.startTracking(
+            initialTransform: frame.camera.transform,
+            timestamp: frame.timestamp
+        )
+        print("▶ Trail tracking started")
+    }
+
+    func updateTrail() {
+        guard let frame = arView?.session.currentFrame else { return }
+        if pathTracker.update(transform: frame.camera.transform, timestamp: frame.timestamp) {
+            print("• Sample added (total: \(pathTracker.sampleCount))")
+            // TODO: Create film plane slice here
+        }
+    }
+
+    func endTrail() {
+        let path = pathTracker.stopTracking()
+        print("■ Trail tracking stopped (\(path.count) samples)")
+        // TODO: Finalize trail geometry
+    }
 }
 
 // MARK: - ARSessionDelegate
@@ -285,6 +311,11 @@ extension ARCoordinator: ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         // Update motion coupling
         motionCoupler.update(from: frame)
+
+        // Update trail if tracking
+        if pathTracker.tracking {
+            updateTrail()
+        }
 
         // Determine tracking state
         let trackingOK: Bool = {

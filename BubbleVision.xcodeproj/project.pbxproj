@@ -17,6 +17,7 @@
 		AA0008 /* MotionCoupler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0009 /* MotionCoupler.swift */; };
 		AA0009 /* FilmPlane.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0010 /* FilmPlane.metal */; };
 		462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */; };
+		AA0011 /* PathTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0011 /* PathTracker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 		BB0010 /* FilmPlane.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = FilmPlane.metal; sourceTree = "<group>"; };
 		CC0001 /* BubbleVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BubbleVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmPlaneBuilder.swift; sourceTree = "<group>"; };
+		BB0011 /* PathTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathTracker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,8 +91,9 @@
 				BB0003 /* ARCoordinator.swift */,
 				BB0004 /* ARViewContainer.swift */,
 				BB0009 /* MotionCoupler.swift */,
-							35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */,
-);
+				35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */,
+				BB0011 /* PathTracker.swift */,
+			);
 			path = AR;
 			sourceTree = "<group>";
 		};
@@ -183,8 +186,9 @@
 				AA0006 /* IridescentSurface.metal in Sources */,
 				AA0008 /* MotionCoupler.swift in Sources */,
 				AA0009 /* FilmPlane.metal in Sources */,
-							462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */,
-);
+				462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */,
+				AA0011 /* PathTracker.swift in Sources */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */

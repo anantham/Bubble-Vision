@@ -50,28 +50,21 @@ struct ContentView: View {
                 // Bottom controls
                 VStack(spacing: 16) {
                     // Blow Button
-                    Button(action: {
-                        coordinator.placeBubble()
-                        generateHaptic()
-                    }) {
+                    Button(action: {}) {
                         Image(systemName: "wind")
-                            .font(.system(size: 32))
+                            .font(.system(size: 44))
                             .foregroundColor(.white)
-                            .frame(width: 80, height: 80)
-                            .background(
-                                Circle()
-                                    .fill(coordinator.isReady ?
-                                          Color.blue.opacity(0.8) :
-                                          Color.gray.opacity(0.4))
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white, lineWidth: 2)
-                            )
                     }
+                    .simultaneousGesture(
+                        LongPressGesture(minimumDuration: 0.1)
+                            .onChanged { _ in
+                                coordinator.startTrail()
+                            }
+                            .onEnded { _ in
+                                coordinator.endTrail()
+                            }
+                    )
                     .disabled(!coordinator.isReady)
-                    .scaleEffect(coordinator.isReady ? 1.0 : 0.9)
-                    .animation(.easeInOut(duration: 0.2), value: coordinator.isReady)
 
                     // Save Button
                     Button(action: {
