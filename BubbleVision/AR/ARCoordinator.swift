@@ -34,6 +34,7 @@ final class ARCoordinator: NSObject, ObservableObject {
     private let motionCoupler = MotionCoupler()
     private var filmPlaneBuilder: FilmPlaneBuilder?
     private let pathTracker = PathTracker()
+    private var trailSlices: [ModelEntity] = []
 
     // MARK: - File URLs
 
@@ -293,8 +294,22 @@ final class ARCoordinator: NSObject, ObservableObject {
     func updateTrail() {
         guard let frame = arView?.session.currentFrame else { return }
         if pathTracker.update(transform: frame.camera.transform, timestamp: frame.timestamp) {
-            print("• Sample added (total: \(pathTracker.sampleCount))")
-            // TODO: Create film plane slice here
+            // Spawn new film plane slice
+            if let builder = filmPlaneBuilder {
+                do {
+                    let filmEntity = try builder.createFilmPlane(cameraTransform: frame.camera.transform)
+
+                    // Create world anchor
+                    let anchor = AnchorEntity(world: frame.camera.transform)
+                    anchor.addChild(filmEntity)
+                    arView?.scene.addAnchor(anchor)
+
+                    trailSlices.append(filmEntity)
+                    print("• Slice added (\(trailSlices.count) total)")
+                } catch {
+                    print("⚠️ Failed to create film plane slice: \(error)")
+                }
+            }
         }
     }
 
