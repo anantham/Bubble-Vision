@@ -26,8 +26,7 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     auto geo = params.geometry();
 
     // Get uniforms (bind from Swift)
-    constexpr sampler s(filter::linear);
-    float time = 0.0;  // TODO: bind uniform
+    // Note: sampler and time will be added in Phase 4 (visual effects)
     float hueSeed = 0.3;
     float baseThickness = 400.0;  // nm
 
