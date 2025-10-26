@@ -91,7 +91,9 @@ final class ARCoordinator: NSObject, ObservableObject {
         motionCoupler.start()
         setupFilmPlaneBuilder()
 
-        statusMessage = "Scanning environment..."
+        DispatchQueue.main.async {
+            self.statusMessage = "Scanning environment..."
+        }
     }
 
     /// Load persisted ARWorldMap and bubbles, then run session
@@ -110,9 +112,13 @@ final class ARCoordinator: NSObject, ObservableObject {
         if let data = try? Data(contentsOf: worldMapURL),
            let map = try? NSKeyedUnarchiver.unarchivedObject(ofClass: ARWorldMap.self, from: data) {
             config.initialWorldMap = map
-            statusMessage = "Relocalizing to saved map..."
+            DispatchQueue.main.async {
+                self.statusMessage = "Relocalizing to saved map..."
+            }
         } else {
-            statusMessage = "No saved map found. Scanning..."
+            DispatchQueue.main.async {
+                self.statusMessage = "No saved map found. Scanning..."
+            }
         }
 
         arView.automaticallyConfigureSession = false

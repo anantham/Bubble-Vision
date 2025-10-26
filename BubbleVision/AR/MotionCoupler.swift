@@ -94,10 +94,7 @@ public final class MotionCoupler {
         omegaDS = omegaFiltered
 
         // Compute tangent velocity from camera transform
-        let camTransform = frame.camera.transform
-        let camPos = SIMD3<Float>(camTransform.columns.3.x, camTransform.columns.3.y, camTransform.columns.3.z)
-
-        // Simple velocity estimation (requires previous frame tracking - placeholder for now)
-        velTangent2D = .zero  // TODO: Track previous position and compute delta
+        // TODO: Track previous position and compute delta (Phase 4: velocity tracking)
+        velTangent2D = .zero
     }
 }
