@@ -51,7 +51,11 @@ final class ARCoordinator: NSObject, ObservableObject {
     /// Setup film plane builder with Metal device
     private func setupFilmPlaneBuilder() {
         if let device = MTLCreateSystemDefaultDevice() {
-            filmPlaneBuilder = FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
+            do {
+                filmPlaneBuilder = try FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
+            } catch {
+                print("⚠️ Failed to create FilmPlaneBuilder: \(error)")
+            }
         } else {
             print("⚠️ Failed to create Metal device - film plane features disabled")
         }

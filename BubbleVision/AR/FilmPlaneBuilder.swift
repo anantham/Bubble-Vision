@@ -17,12 +17,39 @@ public final class FilmPlaneBuilder {
 
     private let device: MTLDevice
     private let apertureShape: ApertureShape
+    private let library: MTLLibrary
+    private var filmMaterial: CustomMaterial?
 
     // MARK: - Init
 
-    public init(device: MTLDevice, apertureShape: ApertureShape = .circle(radius: 0.15)) {
+    public init(device: MTLDevice, apertureShape: ApertureShape = .circle(radius: 0.15)) throws {
         self.device = device
         self.apertureShape = apertureShape
+
+        // Load Metal library
+        guard let lib = device.makeDefaultLibrary() else {
+            throw MaterialError.libraryLoadFailed
+        }
+        self.library = lib
+
+        // Create custom material
+        self.filmMaterial = try createFilmMaterial()
+    }
+
+    private func createFilmMaterial() throws -> CustomMaterial {
+        let surfaceShader = CustomMaterial.SurfaceShader(
+            named: "filmPlane_fragment",
+            in: library
+        )
+
+        return try CustomMaterial(
+            surfaceShader: surfaceShader,
+            lightingModel: .lit
+        )
+    }
+
+    enum MaterialError: Error {
+        case libraryLoadFailed
     }
 
     // MARK: - Mesh Generation
@@ -35,6 +62,11 @@ public final class FilmPlaneBuilder {
 
         // Create entity
         let entity = ModelEntity(mesh: mesh)
+
+        // Apply custom material
+        if let material = filmMaterial {
+            entity.model?.materials = [material]
+        }
 
         // Position at camera with z=0 offset (device space)
         // Film plane IS the screen, so it's at the camera position
