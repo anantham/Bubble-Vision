@@ -34,11 +34,11 @@ final class ARCoordinator: NSObject, ObservableObject {
     private let motionCoupler = MotionCoupler()
     private var filmPlaneBuilder: FilmPlaneBuilder?
     private let pathTracker = PathTracker()
-    private var trailSlices: [ModelEntity] = []
+    private var trailSliceEntities: [UUID: ModelEntity] = [:]  // entity lookup by slice ID
 
     // Trail mode state
     @Published public var isTrailMode: Bool = false
-    public var sliceCount: Int { trailSlices.count }
+    public var sliceCount: Int { sessionState.trailSlices.count }
 
     // MARK: - File URLs
 
@@ -153,10 +153,10 @@ final class ARCoordinator: NSObject, ObservableObject {
                 print("✅ Saved world map")
             }
 
-            // Save bubbles
+            // Save session (bubbles + trail slices)
             if let sessionData = try? JSONEncoder().encode(self.sessionState) {
                 try? sessionData.write(to: self.sessionURL)
-                print("✅ Saved \(self.sessionState.bubbles.count) bubbles")
+                print("✅ Saved session (\(self.sessionState.bubbles.count) bubbles + \(self.sessionState.trailSlices.count) slices)")
             }
         }
     }
@@ -275,19 +275,39 @@ final class ARCoordinator: NSObject, ObservableObject {
         print("🫧 Placed bubble \(bubble.id)")
     }
 
-    /// Reconstruct all saved bubbles (called after relocalization)
+    /// Reconstruct all saved bubbles and trail slices (called after relocalization)
     private func reconstructAllBubbles() {
         guard let arView = arView else { return }
 
         // Clear existing entities
         bubbleEntities.values.forEach { arView.scene.removeAnchor($0) }
         bubbleEntities.removeAll()
+        trailSliceEntities.values.forEach { $0.parent?.removeFromParent() }
+        trailSliceEntities.removeAll()
 
-        // Recreate from session state
+        // Recreate MVP bubbles from session state
         sessionState.bubbles.forEach(createBubbleEntity(from:))
-
         bubbleCount = sessionState.bubbles.count
-        print("♻️ Reconstructed \(bubbleCount) bubbles")
+
+        // Recreate trail slices from session state
+        sessionState.trailSlices.forEach(createTrailSliceEntity(from:))
+
+        print("♻️ Reconstructed \(bubbleCount) bubbles + \(sessionState.trailSlices.count) slices")
+    }
+
+    /// Create and add a trail slice entity to the scene
+    private func createTrailSliceEntity(from slice: TrailSlice) {
+        guard let arView = arView, let builder = filmPlaneBuilder else { return }
+
+        do {
+            let filmEntity = try builder.createFilmPlane(cameraTransform: slice.transform.matrix)
+            let anchor = AnchorEntity(world: slice.transform.matrix)
+            anchor.addChild(filmEntity)
+            arView.scene.addAnchor(anchor)
+            trailSliceEntities[slice.id] = filmEntity
+        } catch {
+            print("⚠️ Failed to reconstruct trail slice: \(error)")
+        }
     }
 
     // MARK: - Trail Tracking
@@ -325,17 +345,22 @@ final class ARCoordinator: NSObject, ObservableObject {
         guard let builder = filmPlaneBuilder else { return }
 
         do {
+            // Create slice data model
+            let sliceData = TrailSlice(transform: transform)
+            sessionState.trailSlices.append(sliceData)
+
+            // Create entity
             let filmEntity = try builder.createFilmPlane(cameraTransform: transform)
             let anchor = AnchorEntity(world: transform)
             anchor.addChild(filmEntity)
             arView?.scene.addAnchor(anchor)
-            trailSlices.append(filmEntity)
+            trailSliceEntities[sliceData.id] = filmEntity
 
             // Subtle haptic on slice spawn
             let generator = UIImpactFeedbackGenerator(style: .light)
             generator.impactOccurred()
 
-            print("• Slice spawned (\(trailSlices.count) total)")
+            print("• Slice spawned (\(sessionState.trailSlices.count) total)")
         } catch {
             print("⚠️ Failed to create film plane slice: \(error)")
         }
@@ -350,25 +375,36 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     func endTrail() {
         let path = pathTracker.stopTracking()
-        print("■ Trail mode DEACTIVATED (\(path.count) samples, \(trailSlices.count) slices)")
+        print("■ Trail mode DEACTIVATED (\(path.count) samples, \(sessionState.trailSlices.count) slices)")
         // TODO: Finalize trail geometry (Phase 3: seam softening)
     }
 
     func clearAllSlices() {
-        let count = trailSlices.count
-        guard count > 0 else { return }
+        let sliceCount = sessionState.trailSlices.count
+        let bubbleCount = sessionState.bubbles.count
+        let totalCount = sliceCount + bubbleCount
+        guard totalCount > 0 else { return }
 
         // Remove all trail slices from scene
-        trailSlices.forEach { slice in
-            slice.parent?.removeFromParent()
+        trailSliceEntities.values.forEach { entity in
+            entity.parent?.removeFromParent()
         }
-        trailSlices.removeAll()
+        trailSliceEntities.removeAll()
+        sessionState.trailSlices.removeAll()
+
+        // Remove all MVP bubbles from scene
+        bubbleEntities.values.forEach { entity in
+            arView?.scene.removeAnchor(entity)
+        }
+        bubbleEntities.removeAll()
+        sessionState.bubbles.removeAll()
+        self.bubbleCount = 0
 
         // Haptic feedback
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
 
-        print("🗑️ Cleared \(count) slices")
+        print("🗑️ Cleared everything (\(sliceCount) slices + \(bubbleCount) MVP bubbles)")
     }
 }
 

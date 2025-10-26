@@ -48,11 +48,29 @@ struct CodableTransform: Codable {
     }
 }
 
+/// Represents a single trail slice (from continuous trail mode)
+struct TrailSlice: Codable, Identifiable {
+    let id: UUID
+    var transform: CodableTransform
+    var createdAt: Date
+
+    init(id: UUID = UUID(),
+         transform: simd_float4x4,
+         createdAt: Date = Date())
+    {
+        self.id = id
+        self.transform = CodableTransform(transform)
+        self.createdAt = createdAt
+    }
+}
+
 /// Session persistence container
 struct SessionState: Codable {
     var bubbles: [BubbleAnchor]
+    var trailSlices: [TrailSlice]
 
-    init(bubbles: [BubbleAnchor] = []) {
+    init(bubbles: [BubbleAnchor] = [], trailSlices: [TrailSlice] = []) {
         self.bubbles = bubbles
+        self.trailSlices = trailSlices
     }
 }
