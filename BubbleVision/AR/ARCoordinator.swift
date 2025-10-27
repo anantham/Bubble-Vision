@@ -10,6 +10,7 @@ import ARKit
 import RealityKit
 import Combine
 import Metal
+import UIKit
 
 final class ARCoordinator: NSObject, ObservableObject {
     // MARK: - Published State
@@ -33,8 +34,14 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     private let motionCoupler = MotionCoupler()
     private var filmPlaneBuilder: FilmPlaneBuilder?
+    private var tileManager: TileManager?
     private let pathTracker = PathTracker()
+    private let sliceRingBuffer = SliceRingBuffer()
     private var trailSliceEntities: [UUID: ModelEntity] = [:]  // entity lookup by slice ID
+    private var lastPaintPosition: SIMD3<Float>?
+    private var cacheMeshEntities: [(anchor: AnchorEntity, tileId: Int, epoch: UInt32)] = []
+    private var framesSinceExtraction: Int = 0
+    private let extractionCadence: Int = 10
 
     // Trail mode state
     @Published public var isTrailMode: Bool = false
@@ -59,6 +66,10 @@ final class ARCoordinator: NSObject, ObservableObject {
         if let device = MTLCreateSystemDefaultDevice() {
             do {
                 filmPlaneBuilder = try FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
+                if tileManager == nil {
+                    tileManager = TileManager(device: device)
+                    print("✓ TileManager initialized (\(tileManager?.tileCount ?? 0) tiles × 64³ voxels)")
+                }
             } catch {
                 print("⚠️ Failed to create FilmPlaneBuilder: \(error)")
             }
@@ -285,6 +296,8 @@ final class ARCoordinator: NSObject, ObservableObject {
         trailSliceEntities.values.forEach { $0.parent?.removeFromParent() }
         trailSliceEntities.removeAll()
 
+        sliceRingBuffer.clear()
+
         // Recreate MVP bubbles from session state
         sessionState.bubbles.forEach(createBubbleEntity(from:))
         bubbleCount = sessionState.bubbles.count
@@ -305,6 +318,12 @@ final class ARCoordinator: NSObject, ObservableObject {
             anchor.addChild(filmEntity)
             arView.scene.addAnchor(anchor)
             trailSliceEntities[slice.id] = filmEntity
+
+            let matrix = slice.transform.matrix
+            let position = SIMD3<Float>(matrix.columns.3.x,
+                                        matrix.columns.3.y,
+                                        matrix.columns.3.z)
+            sliceRingBuffer.addSlice(position: position, timestamp: slice.createdAt.timeIntervalSince1970)
         } catch {
             print("⚠️ Failed to reconstruct trail slice: \(error)")
         }
@@ -322,6 +341,16 @@ final class ARCoordinator: NSObject, ObservableObject {
                 initialTransform: frame.camera.transform,
                 timestamp: frame.timestamp
             )
+
+            lastPaintPosition = SIMD3<Float>(
+                frame.camera.transform.columns.3.x,
+                frame.camera.transform.columns.3.y,
+                frame.camera.transform.columns.3.z
+            )
+            if let startPosition = lastPaintPosition {
+                sliceRingBuffer.addSlice(position: startPosition, timestamp: frame.timestamp)
+            }
+            framesSinceExtraction = 0
 
             // Spawn initial slice immediately (so user sees something)
             spawnSlice(at: frame.camera.transform)
@@ -368,8 +397,30 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     func updateTrail() {
         guard let frame = arView?.session.currentFrame else { return }
+
+        let cameraPos = SIMD3<Float>(
+            frame.camera.transform.columns.3.x,
+            frame.camera.transform.columns.3.y,
+            frame.camera.transform.columns.3.z
+        )
+
+        if lastPaintPosition == nil {
+            lastPaintPosition = cameraPos
+        }
+
         if pathTracker.update(transform: frame.camera.transform, timestamp: frame.timestamp) {
+            if let previous = lastPaintPosition {
+                tileManager?.paintSegment(
+                    from: previous,
+                    to: cameraPos,
+                    aperture: .circle(radius: 0.15),
+                    cameraTransform: frame.camera.transform
+                )
+            }
+
+            sliceRingBuffer.addSlice(position: cameraPos, timestamp: frame.timestamp)
             spawnSlice(at: frame.camera.transform)
+            lastPaintPosition = cameraPos
         }
     }
 
@@ -377,6 +428,81 @@ final class ARCoordinator: NSObject, ObservableObject {
         let path = pathTracker.stopTracking()
         print("■ Trail mode DEACTIVATED (\(path.count) samples, \(sessionState.trailSlices.count) slices)")
         // TODO: Finalize trail geometry (Phase 3: seam softening)
+        lastPaintPosition = nil
+        extractCacheMeshes(force: true)
+    }
+
+    // MARK: - Volume Cache Rendering
+
+    private func extractCacheMeshes(force: Bool = false) {
+        guard let tileManager = tileManager else { return }
+
+        if force {
+            framesSinceExtraction = 0
+        }
+
+        var results: [(vertices: [TileManager.Vertex], indices: [UInt32], frame: TileFrame, tileIndex: Int)] = []
+        var emptyTiles: [Int] = []
+
+        for index in 0..<tileManager.tileCount {
+            if let mesh = tileManager.extractMesh(from: index) {
+                results.append((mesh.vertices, mesh.indices, mesh.frame, index))
+            } else {
+                emptyTiles.append(index)
+            }
+        }
+
+        guard !results.isEmpty || !emptyTiles.isEmpty else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.removeCacheMeshes(for: emptyTiles)
+            self?.installCacheMeshes(results)
+        }
+    }
+
+    private func installCacheMeshes(_ meshes: [(vertices: [TileManager.Vertex], indices: [UInt32], frame: TileFrame, tileIndex: Int)]) {
+        guard let arView = arView else { return }
+
+        for mesh in meshes {
+            let existing = cacheMeshEntities.filter { $0.tileId == mesh.tileIndex }
+            existing.forEach { arView.scene.removeAnchor($0.anchor) }
+            cacheMeshEntities.removeAll { $0.tileId == mesh.tileIndex }
+
+            var descriptor = MeshDescriptor()
+            descriptor.positions = MeshBuffer(mesh.vertices.map { $0.position })
+            descriptor.normals = MeshBuffer(mesh.vertices.map { $0.normal })
+            descriptor.textureCoordinates = MeshBuffer(mesh.vertices.map { $0.uv })
+            descriptor.primitives = .triangles(mesh.indices)
+
+            guard let meshResource = try? MeshResource.generate(from: [descriptor]) else {
+                continue
+            }
+
+            let entity = ModelEntity(mesh: meshResource)
+            if var material = filmPlaneBuilder?.sharedMaterial {
+                material.custom.value = SIMD4<Float>(0, 0, 0, 0)
+                entity.model?.materials = [material]
+            } else {
+                let fallback = SimpleMaterial(color: .white, roughness: 0.2, isMetallic: false)
+                entity.model?.materials = [fallback]
+            }
+
+            let anchor = AnchorEntity(world: matrix_identity_float4x4)
+            anchor.addChild(entity)
+            arView.scene.addAnchor(anchor)
+
+            cacheMeshEntities.append((anchor: anchor, tileId: mesh.tileIndex, epoch: mesh.frame.epoch))
+        }
+    }
+
+    private func removeCacheMeshes(for tileIndices: [Int]) {
+        guard let arView = arView, !tileIndices.isEmpty else { return }
+
+        for tileIndex in tileIndices {
+            let matches = cacheMeshEntities.filter { $0.tileId == tileIndex }
+            matches.forEach { arView.scene.removeAnchor($0.anchor) }
+            cacheMeshEntities.removeAll { $0.tileId == tileIndex }
+        }
     }
 
     func clearAllSlices() {
@@ -391,6 +517,12 @@ final class ARCoordinator: NSObject, ObservableObject {
         }
         trailSliceEntities.removeAll()
         sessionState.trailSlices.removeAll()
+        sliceRingBuffer.clear()
+
+        cacheMeshEntities.forEach { anchor in
+            arView?.scene.removeAnchor(anchor.anchor)
+        }
+        cacheMeshEntities.removeAll()
 
         // Remove all MVP bubbles from scene
         bubbleEntities.values.forEach { entity in
@@ -415,9 +547,31 @@ extension ARCoordinator: ARSessionDelegate {
         // Update motion coupling
         motionCoupler.update(from: frame)
 
+        let cameraTransform = frame.camera.transform
+        let cameraPosition = SIMD3<Float>(
+            cameraTransform.columns.3.x,
+            cameraTransform.columns.3.y,
+            cameraTransform.columns.3.z
+        )
+
+        if let movedTiles = tileManager?.updateTilePositions(cameraPosition: cameraPosition),
+           !movedTiles.isEmpty {
+            removeCacheMeshes(for: movedTiles)
+        }
+
+        updateFilmPlaneBlend(cameraPosition: cameraPosition)
+
         // Update trail if tracking
         if pathTracker.tracking {
             updateTrail()
+
+            framesSinceExtraction += 1
+            if framesSinceExtraction >= extractionCadence {
+                extractCacheMeshes()
+                framesSinceExtraction = 0
+            }
+        } else if framesSinceExtraction != 0 {
+            framesSinceExtraction = 0
         }
 
         // Determine tracking state
@@ -482,6 +636,18 @@ extension ARCoordinator: ARSessionDelegate {
            bubbleEntities.isEmpty {
             DispatchQueue.main.async { [weak self] in
                 self?.reconstructAllBubbles()
+            }
+        }
+    }
+
+    private func updateFilmPlaneBlend(cameraPosition: SIMD3<Float>) {
+        let customValue = SIMD4<Float>(cameraPosition.x, cameraPosition.y, cameraPosition.z, 1.0)
+        for entity in trailSliceEntities.values {
+            guard var materials = entity.model?.materials else { continue }
+            if var customMaterial = materials.first as? CustomMaterial {
+                customMaterial.custom.value = customValue
+                materials[0] = customMaterial
+                entity.model?.materials = materials
             }
         }
     }

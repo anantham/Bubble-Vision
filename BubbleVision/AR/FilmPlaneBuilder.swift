@@ -20,6 +20,11 @@ public final class FilmPlaneBuilder {
     private let library: MTLLibrary
     private var filmMaterial: CustomMaterial?
 
+    // MARK: - Public Material Access
+
+    /// Shared iridescent material for film plane and cache meshes.
+    public private(set) var sharedMaterial: CustomMaterial?
+
     // MARK: - Init
 
     public init(device: MTLDevice, apertureShape: ApertureShape = .circle(radius: 0.15)) throws {
@@ -34,6 +39,10 @@ public final class FilmPlaneBuilder {
 
         // Create custom material
         self.filmMaterial = try createFilmMaterial()
+        if var baseMaterial = filmMaterial {
+            baseMaterial.custom.value = SIMD4<Float>(0, 0, 0, 0)
+            sharedMaterial = baseMaterial
+        }
     }
 
     private func createFilmMaterial() throws -> CustomMaterial {
@@ -66,7 +75,17 @@ public final class FilmPlaneBuilder {
         let entity = ModelEntity(mesh: mesh)
 
         // Apply custom material
-        if let material = filmMaterial {
+        if var material = filmMaterial {
+            let cameraPosition = SIMD3<Float>(
+                cameraTransform.columns.3.x,
+                cameraTransform.columns.3.y,
+                cameraTransform.columns.3.z
+            )
+
+            material.custom.value = SIMD4<Float>(cameraPosition.x,
+                                                 cameraPosition.y,
+                                                 cameraPosition.z,
+                                                 1.0)
             entity.model?.materials = [material]
         }
 

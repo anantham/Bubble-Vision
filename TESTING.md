@@ -200,6 +200,29 @@ Run these tests after any changes to core files:
 
 ---
 
+## Phase 3 Seam Softening Verification
+
+Perform these checks on a device build after implementing the volume cache and blend fade. Mark each item as you validate it.
+
+- [ ] **Curved trail continuity**  
+  Paint a long S-curve while moving the iPad; confirm the cache mesh normals look continuous (no faceting) and the film plane fades out smoothly as you back away ~1 m.
+
+- [ ] **Persistence rebuild**  
+  Paint several curves, background the app to trigger a save, then force-quit and relaunch in the same space. Trails should reload with the same orientation (no twisting or mirrored slices).
+
+- [ ] **Marching-cubes normal spot check**  
+  Capture a GPU frame in Xcode (Product ▸ Capture GPU Frame) and inspect one tile’s vertex normals—verify they align with the trail direction without sharp seams.
+
+- [ ] **Film/cache handoff**  
+  Walk toward and away from an existing trail. The near-field film should reappear <0.5 m and gracefully fade by 0.7 m, while the extracted mesh remains fully opaque.
+
+- [ ] **Performance sanity**  
+  With a dozen trail segments painted, keep the scene running for 2 minutes. FPS (via `.showStatistics`) should stay ≥55 on iPad Pro / ≥50 on iPhone 13; watch for spikes when tiles reposition.
+
+> Tip: Enable `ARView.debugOptions = [.showStatistics]` and keep Xcode’s GPU Frame Debugger handy for the normal inspection.
+
+---
+
 ## Security & Privacy Tests
 
 | Test | Expected | Status |

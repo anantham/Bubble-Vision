@@ -52,10 +52,19 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     // Base opacity
     float opacity = 0.35;
 
+    // Blend against camera distance for film plane only (enable flag in custom parameter w).
+    float4 customParams = params.uniforms().custom_parameter();
+    float3 cameraPos = customParams.xyz;
+    float blendEnable = customParams.w;
+    float3 worldPos = geo.world_position();
+    float distFromCamera = length(worldPos - cameraPos);
+    float blendFactor = smoothstep(0.5, 0.7, distFromCamera);  // 50-70cm transition
+    float opacityScale = mix(1.0, 1.0 - blendFactor, blendEnable);
+
     // Output
     surface.set_base_color(half3(finalColor));
     surface.set_roughness(half(roughness));
     surface.set_metallic(0.0);
-    surface.set_opacity(half(opacity));
+    surface.set_opacity(half(opacity * opacityScale));
     surface.set_emissive_color(half3(0.0));
 }
