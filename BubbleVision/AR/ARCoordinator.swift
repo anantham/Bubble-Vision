@@ -462,8 +462,23 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     private func installCacheMeshes(_ meshes: [(vertices: [TileManager.Vertex], indices: [UInt32], frame: TileFrame, tileIndex: Int)]) {
         guard let arView = arView else { return }
+        guard let tileManager = tileManager else { return }
 
         for mesh in meshes {
+            guard let currentFrame = tileManager.getTileFrame(at: mesh.tileIndex) else {
+                #if DEBUG
+                print("⏭️ Skipped installing cache mesh for tile \(mesh.tileIndex) because frame is unavailable")
+                #endif
+                continue
+            }
+
+            guard currentFrame.epoch == mesh.frame.epoch else {
+                #if DEBUG
+                print("⏭️ Skipped installing cache mesh for tile \(mesh.tileIndex) due to epoch mismatch (\(mesh.frame.epoch) -> \(currentFrame.epoch))")
+                #endif
+                continue
+            }
+
             let existing = cacheMeshEntities.filter { $0.tileId == mesh.tileIndex }
             existing.forEach { arView.scene.removeAnchor($0.anchor) }
             cacheMeshEntities.removeAll { $0.tileId == mesh.tileIndex }

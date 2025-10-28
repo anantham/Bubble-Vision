@@ -438,6 +438,11 @@ void marchingCubesTile(
 
     for (uint i = 0; triTable[cubeIndex][i] != -1; i += 3) {
         uint base = atomic_fetch_add_explicit(vertCount, 3u, memory_order_relaxed);
+        if (base >= maxVerts) {
+            atomic_store_explicit(vertCount, maxVerts, memory_order_relaxed);
+            return;
+        }
+
         if (base + 2u >= maxVerts) {
             atomic_store_explicit(vertCount, maxVerts, memory_order_relaxed);
             return;
