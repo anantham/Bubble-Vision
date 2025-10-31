@@ -18,6 +18,10 @@
 		AA0009 /* FilmPlane.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0010 /* FilmPlane.metal */; };
 		462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */; };
 		AA0011 /* PathTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0011 /* PathTracker.swift */; };
+		AA0012 /* TileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0012 /* TileManager.swift */; };
+		AA0013 /* TilePaint.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0013 /* TilePaint.metal */; };
+		AA0014 /* MarchingCubes.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0014 /* MarchingCubes.metal */; };
+		AA0015 /* SliceRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0015 /* SliceRing.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +38,10 @@
 		CC0001 /* BubbleVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BubbleVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmPlaneBuilder.swift; sourceTree = "<group>"; };
 		BB0011 /* PathTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathTracker.swift; sourceTree = "<group>"; };
+		BB0012 /* TileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TileManager.swift; sourceTree = "<group>"; };
+		BB0013 /* TilePaint.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = TilePaint.metal; sourceTree = "<group>"; };
+		BB0014 /* MarchingCubes.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MarchingCubes.metal; sourceTree = "<group>"; };
+		BB0015 /* SliceRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SliceRing.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +99,7 @@
 				BB0003 /* ARCoordinator.swift */,
 				BB0004 /* ARViewContainer.swift */,
 				BB0009 /* MotionCoupler.swift */,
+				BB0012 /* TileManager.swift */,
 				35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */,
 				BB0011 /* PathTracker.swift */,
 			);
@@ -101,6 +110,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0005 /* BubbleAnchor.swift */,
+				BB0015 /* SliceRing.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -110,6 +120,8 @@
 			children = (
 				BB0006 /* IridescentSurface.metal */,
 				BB0010 /* FilmPlane.metal */,
+				BB0013 /* TilePaint.metal */,
+				BB0014 /* MarchingCubes.metal */,
 			);
 			path = Shaders;
 			sourceTree = "<group>";
@@ -186,8 +198,12 @@
 				AA0006 /* IridescentSurface.metal in Sources */,
 				AA0008 /* MotionCoupler.swift in Sources */,
 				AA0009 /* FilmPlane.metal in Sources */,
+				AA0013 /* TilePaint.metal in Sources */,
+				AA0014 /* MarchingCubes.metal in Sources */,
 				462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */,
 				AA0011 /* PathTracker.swift in Sources */,
+				AA0012 /* TileManager.swift in Sources */,
+				AA0015 /* SliceRing.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1217,37 +1217,58 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-**[Phase 2 continues with Tasks 2.2-2.6 for SDF painting and marching cubes... truncated for length]**
+**[Phase 2-6 detailed implementation available in: `docs/plans/phase2-6-detailed-tasks.md`]**
 
 ---
 
-## Phase 3-6 Summary
+## Phase 2-6 Overview
 
-Due to plan length constraints, Phases 3-6 follow the same pattern:
+**Complete detailed tasks with code snippets in:** `docs/plans/phase2-6-detailed-tasks.md`
+
+This file contains:
+- ✅ Phase 2 Tasks 2.2-2.6 (SDF painting, marching cubes, tile management, blend zones)
+- ✅ Phase 3 Tasks 3.1-3.4 (SliceRing, stable basis from Q6, tetrahedral gradient, seam softening)
+- ✅ Phase 4 Tasks 4.1-4.5 (IMU integration, wobble grid from Q10, visual FX from Q11, camera refraction)
+- ✅ Phase 5 Tasks 5.1-5.4 (Settings persistence, auto-degradation from Q14, device detection, resource guard)
+- ✅ Phase 6 Tasks 6.1-6.4 (Telemetry, testing protocol, polish, App Store prep)
+
+**Research Integration:**
+- Q6: Stable Basis Computation (Rotation-Minimizing Frame) → Phase 3
+- Q10: Wobble Grid Implementation (32×18 spring-damper) → Phase 4
+- Q11: Visual FX Shader Integration (7 modular effects) → Phase 4
+- Q14: Auto-Degradation Algorithm (EMA with hysteresis) → Phase 5
+
+**Quick Phase Summary:**
+
+**Phase 2: Volume Extrusion Cache (Week 2)**
+- SDF paint kernel with smooth-min blending
+- Marching cubes extraction (GPU)
+- Tile ring buffer with epoch management
+- Film plane ↔ cache blend zones
 
 **Phase 3: Seam Softening (Week 3)**
-- Copy implementation-SeamSoftener.metal to project
-- Implement SliceRing tracking in PathTracker
-- Integrate neighbor blending in shader
-- Test smooth junctions at grazing angles
+- SliceRing with rotation-minimizing frame (RMF)
+- Tetrahedral gradient evaluation (40% faster)
+- Fragment shader integration
+- Stable basis prevents twisting
 
 **Phase 4: IMU & Visual FX (Week 4)**
-- Copy implementation-VisualFX.metal to project
-- Update FilmPlane.metal to include all 7 effects
-- Implement wobble grid (Tier B) or analytic (Tier A)
-- Settings toggles for each effect
+- CoreMotion acceleration tracking
+- 32×18 spring-damper wobble grid (Tier B)
+- 7 modular visual effects (bitmask control)
+- Camera feed refraction
 
 **Phase 5: Settings & Performance (Week 5)**
-- Create SettingsManager with debouncing + versioning
-- Build SettingsView UI
-- Implement PerformanceController with EMA auto-degradation
-- Device capability detection
+- Debounced settings persistence (250ms)
+- EMA-based auto-degradation (α=0.1, 3 tiers)
+- Device capability detection (Tier A/B)
+- Resource guard (memory caps)
 
 **Phase 6: Polish & Ship (Week 6)**
-- Implement CaptureManager (black box recording)
-- Create golden scene tests
-- Run full QA matrix (docs/plans/README.md)
-- App Store submission
+- Local-only telemetry & black box (30s ring buffer)
+- Comprehensive testing protocol
+- Privacy audit (100% compliant)
+- App Store preparation
 
 ---
 
