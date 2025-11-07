@@ -30,7 +30,16 @@ final class ARCoordinator: NSObject, ObservableObject {
     private var sessionState = SessionState()
     private var bubbleEntities: [UUID: AnchorEntity] = [:]
 
-    private let maxBubbles = 100
+    private let settingsManager = SettingsManager.shared
+    private var cancellables: Set<AnyCancellable> = []
+    private let joltFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+
+    private var maxBubbles: Int {
+        settingsManager.current.maxBubbles
+    }
+    private var wobbleGrid: WobbleGrid?
+    private var wobbleTexture: TextureResource?
+    private var metalDevice: MTLDevice?
 
     private let motionCoupler = MotionCoupler()
     private var filmPlaneBuilder: FilmPlaneBuilder?
@@ -42,10 +51,21 @@ final class ARCoordinator: NSObject, ObservableObject {
     private var cacheMeshEntities: [(anchor: AnchorEntity, tileId: Int, epoch: UInt32)] = []
     private var framesSinceExtraction: Int = 0
     private let extractionCadence: Int = 10
+    private var trailSliceBaselineCount: Int = 0
 
     // Trail mode state
     @Published public var isTrailMode: Bool = false
     public var sliceCount: Int { sessionState.trailSlices.count }
+
+    override init() {
+        super.init()
+        settingsManager.$current
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] settings in
+                self?.applySettings(settings)
+            }
+            .store(in: &cancellables)
+    }
 
     // MARK: - File URLs
 
@@ -65,17 +85,92 @@ final class ARCoordinator: NSObject, ObservableObject {
     private func setupFilmPlaneBuilder() {
         if let device = MTLCreateSystemDefaultDevice() {
             do {
+                metalDevice = device
                 filmPlaneBuilder = try FilmPlaneBuilder(device: device, apertureShape: .circle(radius: 0.15))
                 if tileManager == nil {
                     tileManager = TileManager(device: device)
                     print("✓ TileManager initialized (\(tileManager?.tileCount ?? 0) tiles × 64³ voxels)")
                 }
+                createWobbleGridIfNeeded()
+                applySettings(settingsManager.current)
             } catch {
                 print("⚠️ Failed to create FilmPlaneBuilder: \(error)")
             }
         } else {
             print("⚠️ Failed to create Metal device - film plane features disabled")
         }
+    }
+
+    private func applySettings(_ settings: AppSettings) {
+        if settings.enableWobble {
+            createWobbleGridIfNeeded()
+        } else {
+            wobbleGrid = nil
+            wobbleTexture = nil
+        }
+        updateSceneMaterials()
+    }
+
+    private func createWobbleGridIfNeeded() {
+        guard wobbleGrid == nil,
+              let device = metalDevice,
+              settingsManager.current.enableWobble else { return }
+
+        wobbleGrid = WobbleGrid(device: device)
+        refreshWobbleTextureResource()
+    }
+
+    private func refreshWobbleTextureResource() {
+        guard let texture = wobbleGrid?.displacementTexture else {
+            wobbleTexture = nil
+            return
+        }
+
+        do {
+            wobbleTexture = try TextureResource(from: texture)
+        } catch {
+            wobbleTexture = nil
+            print("⚠️ Failed to create wobble texture resource: \(error)")
+        }
+    }
+
+    private func updateSceneMaterials() {
+        let apply: (ModelEntity) -> Void = { [weak self] entity in
+            guard let self,
+                  var material = entity.model?.materials.first as? CustomMaterial else { return }
+            self.configureMaterial(&material)
+            entity.model?.materials[0] = material
+        }
+
+        trailSliceEntities.values.forEach(apply)
+        cacheMeshEntities.forEach { tuple in
+            tuple.anchor.children.compactMap { $0 as? ModelEntity }.forEach(apply)
+        }
+    }
+
+    private func configureMaterial(_ material: inout CustomMaterial) {
+        if settingsManager.current.enableWobble, let wobbleTexture {
+            material.custom.texture = CustomMaterial.Texture(wobbleTexture)
+        } else {
+            material.custom.texture = nil
+        }
+
+        material.custom.value = makeCustomValueVector()
+    }
+
+    private func makeCustomValueVector() -> SIMD4<Float> {
+        let fx = settingsManager.current.visualFX
+        var packedMask: UInt32 = settingsManager.current.enableSeamSoftening ? (1 << 7) : 0
+
+        if fx.enabled {
+            packedMask |= UInt32(fx.effectsMask)
+        }
+
+        let intensity = fx.enabled ? fx.intensity : 0.0
+        let param2 = fx.enabled ? fx.param2 : 0.0
+        let param3 = fx.enabled ? fx.param3 : 0.0
+
+        return SIMD4<Float>(Float(packedMask), intensity, param2, param3)
     }
 
     // MARK: - Session Lifecycle
@@ -101,6 +196,7 @@ final class ARCoordinator: NSObject, ObservableObject {
 
         motionCoupler.start()
         setupFilmPlaneBuilder()
+        joltFeedbackGenerator.prepare()
 
         DispatchQueue.main.async {
             self.statusMessage = "Scanning environment..."
@@ -138,6 +234,7 @@ final class ARCoordinator: NSObject, ObservableObject {
 
         motionCoupler.start()
         setupFilmPlaneBuilder()
+        joltFeedbackGenerator.prepare()
 
         // Load saved bubbles
         if let bubblesData = try? Data(contentsOf: sessionURL),
@@ -189,6 +286,10 @@ final class ARCoordinator: NSObject, ObservableObject {
         if let builder = filmPlaneBuilder {
             do {
                 let filmEntity = try builder.createFilmPlane(cameraTransform: frame.camera.transform)
+                if var material = filmEntity.model?.materials.first as? CustomMaterial {
+                    configureMaterial(&material)
+                    filmEntity.model?.materials[0] = material
+                }
 
                 // Add to scene
                 let anchor = AnchorEntity(world: frame.camera.transform)
@@ -314,6 +415,10 @@ final class ARCoordinator: NSObject, ObservableObject {
 
         do {
             let filmEntity = try builder.createFilmPlane(cameraTransform: slice.transform.matrix)
+            if var material = filmEntity.model?.materials.first as? CustomMaterial {
+                configureMaterial(&material)
+                filmEntity.model?.materials[0] = material
+            }
             let anchor = AnchorEntity(world: slice.transform.matrix)
             anchor.addChild(filmEntity)
             arView.scene.addAnchor(anchor)
@@ -336,6 +441,7 @@ final class ARCoordinator: NSObject, ObservableObject {
 
         if isTrailMode {
             // Entering trail mode
+            trailSliceBaselineCount = sessionState.trailSlices.count
             guard let frame = arView?.session.currentFrame else { return }
             pathTracker.startTracking(
                 initialTransform: frame.camera.transform,
@@ -375,12 +481,17 @@ final class ARCoordinator: NSObject, ObservableObject {
 
         do {
             // Create slice data model
-            let sliceData = TrailSlice(transform: transform)
+            let adjustedTransform = smoothedSliceTransform(from: transform)
+            let sliceData = TrailSlice(transform: adjustedTransform)
             sessionState.trailSlices.append(sliceData)
 
             // Create entity
-            let filmEntity = try builder.createFilmPlane(cameraTransform: transform)
-            let anchor = AnchorEntity(world: transform)
+            let filmEntity = try builder.createFilmPlane(cameraTransform: adjustedTransform)
+            if var material = filmEntity.model?.materials.first as? CustomMaterial {
+                configureMaterial(&material)
+                filmEntity.model?.materials[0] = material
+            }
+            let anchor = AnchorEntity(world: adjustedTransform)
             anchor.addChild(filmEntity)
             arView?.scene.addAnchor(anchor)
             trailSliceEntities[sliceData.id] = filmEntity
@@ -427,7 +538,7 @@ final class ARCoordinator: NSObject, ObservableObject {
     func endTrail() {
         let path = pathTracker.stopTracking()
         print("■ Trail mode DEACTIVATED (\(path.count) samples, \(sessionState.trailSlices.count) slices)")
-        // TODO: Finalize trail geometry (Phase 3: seam softening)
+        trailSliceBaselineCount = sessionState.trailSlices.count
         lastPaintPosition = nil
         extractCacheMeshes(force: true)
     }
@@ -495,7 +606,7 @@ final class ARCoordinator: NSObject, ObservableObject {
 
             let entity = ModelEntity(mesh: meshResource)
             if var material = filmPlaneBuilder?.sharedMaterial {
-                material.custom.value = SIMD4<Float>(0, 0, 0, 0)
+                configureMaterial(&material)
                 entity.model?.materials = [material]
             } else {
                 let fallback = SimpleMaterial(color: .white, roughness: 0.2, isMetallic: false)
@@ -533,6 +644,7 @@ final class ARCoordinator: NSObject, ObservableObject {
         trailSliceEntities.removeAll()
         sessionState.trailSlices.removeAll()
         sliceRingBuffer.clear()
+        trailSliceBaselineCount = 0
 
         cacheMeshEntities.forEach { anchor in
             arView?.scene.removeAnchor(anchor.anchor)
@@ -555,12 +667,43 @@ final class ARCoordinator: NSObject, ObservableObject {
     }
 }
 
+// MARK: - Seam Softening Helpers
+
+private extension ARCoordinator {
+    func smoothedSliceTransform(from transform: simd_float4x4) -> simd_float4x4 {
+        guard settingsManager.current.enableSeamSoftening else { return transform }
+        let existingSliceCount = sessionState.trailSlices.count
+        guard existingSliceCount > trailSliceBaselineCount,
+              let lastMatrix = sessionState.trailSlices.last?.transform.matrix else {
+            return transform
+        }
+
+        let previousRotation = simd_quatf(lastMatrix)
+        let currentRotation = simd_quatf(transform)
+        let blendedRotation = simd_slerp(previousRotation, currentRotation, 0.35)
+
+        var result = simd_float4x4(blendedRotation)
+        result.columns.3 = transform.columns.3
+        return result
+    }
+}
+
 // MARK: - ARSessionDelegate
 
 extension ARCoordinator: ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         // Update motion coupling
         motionCoupler.update(from: frame)
+        if motionCoupler.detectJolt() {
+            DispatchQueue.main.async {
+                self.joltFeedbackGenerator.impactOccurred()
+            }
+        }
+
+        if settingsManager.current.enableWobble,
+           let grid = wobbleGrid {
+            grid.update(dt: 1.0 / 60.0, externalAcceleration: motionCoupler.accelSmoothed2D)
+        }
 
         let cameraTransform = frame.camera.transform
         let cameraPosition = SIMD3<Float>(
@@ -573,8 +716,6 @@ extension ARCoordinator: ARSessionDelegate {
            !movedTiles.isEmpty {
             removeCacheMeshes(for: movedTiles)
         }
-
-        updateFilmPlaneBlend(cameraPosition: cameraPosition)
 
         // Update trail if tracking
         if pathTracker.tracking {
@@ -651,18 +792,6 @@ extension ARCoordinator: ARSessionDelegate {
            bubbleEntities.isEmpty {
             DispatchQueue.main.async { [weak self] in
                 self?.reconstructAllBubbles()
-            }
-        }
-    }
-
-    private func updateFilmPlaneBlend(cameraPosition: SIMD3<Float>) {
-        let customValue = SIMD4<Float>(cameraPosition.x, cameraPosition.y, cameraPosition.z, 1.0)
-        for entity in trailSliceEntities.values {
-            guard var materials = entity.model?.materials else { continue }
-            if var customMaterial = materials.first as? CustomMaterial {
-                customMaterial.custom.value = customValue
-                materials[0] = customMaterial
-                entity.model?.materials = materials
             }
         }
     }

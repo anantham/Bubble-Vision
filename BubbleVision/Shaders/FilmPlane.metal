@@ -4,6 +4,7 @@
 
 #include <metal_stdlib>
 #include <RealityKit/RealityKit.h>
+#include "VisualEffects.metal"
 using namespace metal;
 
 // Uniforms (will expand in later tasks)
@@ -30,6 +31,8 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     float hueSeed = 0.3;
     float baseThickness = 400.0;  // nm
 
+    float2 uv = geo.uv0();
+
     // Basic Fresnel
     float3 N = geo.normal();
     float3 V = -geo.view_direction();
@@ -52,14 +55,45 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     // Base opacity
     float opacity = 0.35;
 
-    // Blend against camera distance for film plane only (enable flag in custom parameter w).
-    float4 customParams = params.uniforms().custom_parameter();
-    float3 cameraPos = customParams.xyz;
-    float blendEnable = customParams.w;
+    // Blend against camera distance for film plane.
+    float4x4 worldToView = params.uniforms().world_to_view();
+    float4x4 viewToWorld = inverse(worldToView);
+    float4 camColumn = viewToWorld.columns[3];
+    float3 cameraPos = (camColumn.xyz / camColumn.w);
     float3 worldPos = geo.world_position();
     float distFromCamera = length(worldPos - cameraPos);
     float blendFactor = smoothstep(0.5, 0.7, distFromCamera);  // 50-70cm transition
-    float opacityScale = mix(1.0, 1.0 - blendFactor, blendEnable);
+    float baseOpacityScale = mix(1.0, 1.0 - blendFactor, 1.0);
+
+    // Retrieve packed FX/seam parameters.
+    float4 fxParams = params.uniforms().custom_parameter();
+    uint packedMask = uint(fxParams.x + 0.5);
+    const uint seamBit = 1u << 7;
+    bool seamEnabled = (packedMask & seamBit) != 0;
+    uint mask = packedMask & (seamBit - 1u);
+    float fxIntensity = fxParams.y;
+    float fxParam2 = fxParams.z;
+    float fxParam3 = fxParams.w;
+
+    // Seam softening: fade rim and lift roughness when slices overlap.
+    float seamStrength = seamEnabled ? 1.0 : 0.0;
+    float edgeBlend = smoothstep(0.35, 0.5, length(uv - float2(0.5)));
+    float seamFactor = seamStrength * edgeBlend;
+    float roughnessBoost = seamFactor * 0.22;
+    roughness = clamp(roughness + roughnessBoost, 0.0, 1.0);
+    float seamOpacityScale = mix(1.0, 1.0 - seamFactor * 0.75, seamStrength);
+    float opacityScale = baseOpacityScale * seamOpacityScale;
+    finalColor = mix(finalColor, mix(finalColor, float3(1.0), 0.1), seamFactor * 0.4);
+
+    if (mask != 0) {
+        finalColor = apply_visual_effects(finalColor,
+                                          uv,
+                                          fresnel,
+                                          mask,
+                                          fxIntensity,
+                                          fxParam2,
+                                          fxParam3);
+    }
 
     // Output
     surface.set_base_color(half3(finalColor));
