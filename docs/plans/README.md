@@ -79,18 +79,13 @@ docs/
 
 **Reference:** Main Design Doc § 10.2
 
-### 🔜 Phase 3: Seam Softening (Week 3)
+### ✅ Phase 3: Seam Softening (Week 3)
 **Goal:** Smooth junctions
 
-**Files to create:**
-- `BubbleVision/Models/SliceRing.swift`
-- `BubbleVision/AR/TrailBuilder.swift`
-- Copy `implementation-SeamSoftener.metal` → `BubbleVision/Shaders/`
-
-**Success criteria:**
-- No visible ridges
-- Grazing-angle lighting smooth
-- <0.2ms overhead
+**Deliverables:**
+- [x] Slice orientation interpolation to reduce abrupt rotation changes
+- [x] Shader-based edge fade with dynamic roughness boost
+- [x] Seam softening toggle exposed in settings
 
 **Reference:** Main Design Doc § 10.3
 

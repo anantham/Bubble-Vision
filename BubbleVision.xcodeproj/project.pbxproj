@@ -22,6 +22,12 @@
 		AA0013 /* TilePaint.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0013 /* TilePaint.metal */; };
 		AA0014 /* MarchingCubes.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0014 /* MarchingCubes.metal */; };
 		AA0015 /* SliceRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0015 /* SliceRing.swift */; };
+		AA0016 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0016 /* AppSettings.swift */; };
+		AA0017 /* VisualFXSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0017 /* VisualFXSettings.swift */; };
+		AA0018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0018 /* SettingsView.swift */; };
+		AA0019 /* WobbleGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0019 /* WobbleGrid.swift */; };
+		AA001A /* WobbleDisplacement.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0020 /* WobbleDisplacement.metal */; };
+		AA001B /* VisualEffects.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0021 /* VisualEffects.metal */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +48,12 @@
 		BB0013 /* TilePaint.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = TilePaint.metal; sourceTree = "<group>"; };
 		BB0014 /* MarchingCubes.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MarchingCubes.metal; sourceTree = "<group>"; };
 		BB0015 /* SliceRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SliceRing.swift; sourceTree = "<group>"; };
+		BB0016 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		BB0017 /* VisualFXSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualFXSettings.swift; sourceTree = "<group>"; };
+		BB0018 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		BB0019 /* WobbleGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WobbleGrid.swift; sourceTree = "<group>"; };
+		BB0020 /* WobbleDisplacement.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = WobbleDisplacement.metal; sourceTree = "<group>"; };
+		BB0021 /* VisualEffects.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = VisualEffects.metal; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +83,8 @@
 				EE0004 /* Views */,
 				EE0005 /* AR */,
 				EE0006 /* Models */,
+				EE0008 /* Settings */,
+				EE0009 /* Physics */,
 				EE0007 /* Shaders */,
 				BB0007 /* Assets.xcassets */,
 			);
@@ -89,6 +103,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0002 /* ContentView.swift */,
+				BB0018 /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -111,6 +126,7 @@
 			children = (
 				BB0005 /* BubbleAnchor.swift */,
 				BB0015 /* SliceRing.swift */,
+				BB0017 /* VisualFXSettings.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -122,8 +138,26 @@
 				BB0010 /* FilmPlane.metal */,
 				BB0013 /* TilePaint.metal */,
 				BB0014 /* MarchingCubes.metal */,
+				BB0020 /* WobbleDisplacement.metal */,
+				BB0021 /* VisualEffects.metal */,
 			);
 			path = Shaders;
+			sourceTree = "<group>";
+		};
+		EE0008 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				BB0016 /* AppSettings.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		EE0009 /* Physics */ = {
+			isa = PBXGroup;
+			children = (
+				BB0019 /* WobbleGrid.swift */,
+			);
+			path = Physics;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -192,18 +226,24 @@
 			files = (
 				AA0001 /* BubbleVisionApp.swift in Sources */,
 				AA0002 /* ContentView.swift in Sources */,
+				AA0018 /* SettingsView.swift in Sources */,
 				AA0003 /* ARCoordinator.swift in Sources */,
 				AA0004 /* ARViewContainer.swift in Sources */,
 				AA0005 /* BubbleAnchor.swift in Sources */,
 				AA0006 /* IridescentSurface.metal in Sources */,
 				AA0008 /* MotionCoupler.swift in Sources */,
 				AA0009 /* FilmPlane.metal in Sources */,
+				AA001A /* WobbleDisplacement.metal in Sources */,
+				AA001B /* VisualEffects.metal in Sources */,
 				AA0013 /* TilePaint.metal in Sources */,
 				AA0014 /* MarchingCubes.metal in Sources */,
 				462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */,
 				AA0011 /* PathTracker.swift in Sources */,
 				AA0012 /* TileManager.swift in Sources */,
 				AA0015 /* SliceRing.swift in Sources */,
+				AA0016 /* AppSettings.swift in Sources */,
+				AA0017 /* VisualFXSettings.swift in Sources */,
+				AA0019 /* WobbleGrid.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

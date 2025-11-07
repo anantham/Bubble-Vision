@@ -10,9 +10,11 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var coordinator = ARCoordinator()
     @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var settingsManager: SettingsManager
 
     // Load persisted state on launch
     @State private var loadPersisted = true
+    @State private var showingSettings = false
 
     var body: some View {
         ZStack {
@@ -36,12 +38,25 @@ struct ContentView: View {
 
                     Spacer()
 
-                    Text("Bubbles: \(coordinator.bubbleCount)")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Color.black.opacity(0.6))
-                        .cornerRadius(8)
+                    HStack(spacing: 8) {
+                        Text("Bubbles: \(coordinator.bubbleCount)")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Color.black.opacity(0.6))
+                            .cornerRadius(8)
+
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            Image(systemName: "gearshape.fill")
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Color.black.opacity(0.6))
+                                .clipShape(Circle())
+                        }
+                        .accessibilityLabel("Settings")
+                    }
                 }
                 .padding()
 
@@ -137,6 +152,10 @@ struct ContentView: View {
             default:
                 break
             }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+                .environmentObject(settingsManager)
         }
     }
 

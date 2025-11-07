@@ -51,8 +51,14 @@ public final class FilmPlaneBuilder {
             in: library
         )
 
+        let geometryModifier = CustomMaterial.GeometryModifier(
+            named: "wobbleDisplacement_geometry",
+            in: library
+        )
+
         // Using .lit model - iOS 26 API compatible alternative to .physicallyBased
         return try CustomMaterial(
+            geometryModifier: geometryModifier,
             surfaceShader: surfaceShader,
             lightingModel: .lit
         )

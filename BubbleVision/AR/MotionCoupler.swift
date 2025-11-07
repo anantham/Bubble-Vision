@@ -17,6 +17,12 @@ public final class MotionCoupler {
     /// Tangent velocity magnitude (m/s) - lateral motion
     public private(set) var velTangent2D: SIMD2<Float> = .zero
 
+    /// Smoothed lateral acceleration derived from IMU user acceleration.
+    public private(set) var accelSmoothed2D: SIMD2<Float> = .zero
+
+    /// Instantaneous acceleration magnitude for jolt detection.
+    public private(set) var joltMagnitude: Float = 0
+
     // MARK: - Private State
 
     private let motionManager = CMMotionManager()
@@ -28,6 +34,18 @@ public final class MotionCoupler {
 
     private var gravityFiltered: SIMD3<Float> = SIMD3(0, -1, 0)
     private var omegaFiltered: SIMD3<Float> = .zero
+
+    // Acceleration tracking
+    private var accelHistory: [SIMD3<Float>] = []
+    private let historySize = 10  // ~0.16s at 60 Hz
+
+    // Jolt detection
+    private var lastJoltTime: TimeInterval = 0
+    private let joltCooldown: TimeInterval = 0.3
+
+    // Camera motion tracking
+    private var lastCameraPosition: SIMD3<Float>?
+    private var lastCameraTimestamp: TimeInterval?
 
     // MARK: - Lifecycle
 
@@ -93,8 +111,59 @@ public final class MotionCoupler {
         gravityDS = normalize(gravityFiltered)
         omegaDS = omegaFiltered
 
-        // Compute tangent velocity from camera transform
-        // TODO: Track previous position and compute delta (Phase 4: velocity tracking)
-        velTangent2D = .zero
+        // Track user acceleration (gravity-compensated)
+        let accel = SIMD3<Float>(
+            Float(motion.userAcceleration.x),
+            Float(motion.userAcceleration.y),
+            Float(motion.userAcceleration.z)
+        )
+
+        accelHistory.append(accel)
+        if accelHistory.count > historySize {
+            accelHistory.removeFirst()
+        }
+
+        if !accelHistory.isEmpty {
+            let sum = accelHistory.reduce(SIMD3<Float>.zero, +)
+            let smoothed = sum / Float(accelHistory.count)
+            accelSmoothed2D = SIMD2<Float>(smoothed.x, smoothed.y)
+        } else {
+            accelSmoothed2D = .zero
+        }
+
+        joltMagnitude = simd_length(accel)
+
+        // Tangent velocity from camera pose delta
+        let cameraPosition = SIMD3<Float>(
+            frame.camera.transform.columns.3.x,
+            frame.camera.transform.columns.3.y,
+            frame.camera.transform.columns.3.z
+        )
+
+        if let previousPosition = lastCameraPosition,
+           let previousTimestamp = lastCameraTimestamp {
+            let dt = Float(frame.timestamp - previousTimestamp)
+            if dt > 0 {
+                let delta = cameraPosition - previousPosition
+                let lateral = SIMD2<Float>(delta.x, delta.y) / dt
+                velTangent2D = lateral
+            }
+        }
+
+        lastCameraPosition = cameraPosition
+        lastCameraTimestamp = frame.timestamp
+    }
+
+    /// Detect sudden acceleration spike (jolt).
+    func detectJolt(threshold: Float = 1.5) -> Bool {
+        let now = Date().timeIntervalSince1970
+        guard now - lastJoltTime > joltCooldown else { return false }
+
+        if joltMagnitude > threshold {
+            lastJoltTime = now
+            return true
+        }
+
+        return false
     }
 }

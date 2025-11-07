@@ -13,6 +13,7 @@ struct BubbleVisionApp: App {
         WindowGroup {
             ContentView()
                 .ignoresSafeArea()
+                .environmentObject(SettingsManager.shared)
         }
     }
 }
