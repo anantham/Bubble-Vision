@@ -9,9 +9,6 @@ final class SeamTopologyCache {
 
     // MARK: - Configuration
 
-    /// Threshold distance for considering slices as adjacent (meters)
-    private let adjacencyThreshold: Float = 0.05  // 5cm
-
     /// Refinement update interval (seconds) - 30 Hz = ~33ms
     private let updateInterval: TimeInterval = 1.0 / 30.0
 
@@ -41,6 +38,7 @@ final class SeamTopologyCache {
         var distance: Float
         var isDirty: Bool
         var lastRefinedTime: TimeInterval
+        var adjacencyThreshold: Float
 
         /// Compute overlap factor for seam blending (0 = no overlap, 1 = full overlap)
         var overlapFactor: Float {
@@ -108,7 +106,8 @@ final class SeamTopologyCache {
                         pair: pair,
                         distance: dist,
                         isDirty: isDirty,
-                        lastRefinedTime: adjacencyMap[pair]?.lastRefinedTime ?? 0
+                        lastRefinedTime: adjacencyMap[pair]?.lastRefinedTime ?? 0,
+                        adjacencyThreshold: adjacencyThreshold
                     )
 
                     newAdjacencyMap[pair] = seam

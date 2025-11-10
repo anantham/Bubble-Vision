@@ -183,12 +183,12 @@ public final class FilmPlaneBuilder {
 
         // Outer vertices
         let outer: [SIMD3<Float>] = [
-            SIMD3(-w, -h, 0), SIMD3(w, -h, 0), SIMD3(w, h, 0), SIMD3(-w, h, 0)
+            SIMD3<Float>(-w, -h, 0), SIMD3<Float>(w, -h, 0), SIMD3<Float>(w, h, 0), SIMD3<Float>(-w, h, 0)
         ]
 
         // Inner vertices
         let inner: [SIMD3<Float>] = [
-            SIMD3(-iw, -ih, 0), SIMD3(iw, -ih, 0), SIMD3(iw, ih, 0), SIMD3(-iw, ih, 0)
+            SIMD3<Float>(-iw, -ih, 0), SIMD3<Float>(iw, -ih, 0), SIMD3<Float>(iw, ih, 0), SIMD3<Float>(-iw, ih, 0)
         ]
 
         // Build rim quad strips
