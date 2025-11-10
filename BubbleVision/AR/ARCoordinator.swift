@@ -12,6 +12,7 @@ import Combine
 import Metal
 import UIKit
 
+@MainActor
 final class ARCoordinator: NSObject, ObservableObject {
     // MARK: - Published State
 
@@ -34,6 +35,7 @@ final class ARCoordinator: NSObject, ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
     private let joltFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
 
+    @MainActor
     private var maxBubbles: Int {
         settingsManager.current.maxBubbles
     }
@@ -41,7 +43,7 @@ final class ARCoordinator: NSObject, ObservableObject {
     private var wobbleTexture: TextureResource?
     private var metalDevice: MTLDevice?
 
-    private let motionCoupler = MotionCoupler()
+    nonisolated(unsafe) private let motionCoupler = MotionCoupler()
     private var filmPlaneBuilder: FilmPlaneBuilder?
     private var tileManager: TileManager?
     private let pathTracker = PathTracker()
@@ -82,6 +84,7 @@ final class ARCoordinator: NSObject, ObservableObject {
     // MARK: - Private Helpers
 
     /// Setup film plane builder with Metal device
+    @MainActor
     private func setupFilmPlaneBuilder() {
         if let device = MTLCreateSystemDefaultDevice() {
             do {
@@ -101,6 +104,7 @@ final class ARCoordinator: NSObject, ObservableObject {
         }
     }
 
+    @MainActor
     private func applySettings(_ settings: AppSettings) {
         if settings.enableWobble {
             createWobbleGridIfNeeded()
@@ -121,17 +125,15 @@ final class ARCoordinator: NSObject, ObservableObject {
     }
 
     private func refreshWobbleTextureResource() {
-        guard let texture = wobbleGrid?.displacementTexture else {
+        guard wobbleGrid?.displacementTexture != nil else {
             wobbleTexture = nil
             return
         }
 
-        do {
-            wobbleTexture = try TextureResource(from: texture)
-        } catch {
-            wobbleTexture = nil
-            print("⚠️ Failed to create wobble texture resource: \(error)")
-        }
+        wobbleTexture = nil
+        #if DEBUG
+        print("ℹ️ Wobble texture bridging not available on current SDK; wobble disabled.")
+        #endif
     }
 
     private func updateSceneMaterials() {
@@ -148,17 +150,25 @@ final class ARCoordinator: NSObject, ObservableObject {
         }
     }
 
+    @MainActor
     private func configureMaterial(_ material: inout CustomMaterial) {
         if settingsManager.current.enableWobble, let wobbleTexture {
-            material.custom.texture = CustomMaterial.Texture(wobbleTexture)
+            material.custom.texture = .init(wobbleTexture)
         } else {
             material.custom.texture = nil
         }
 
-        material.custom.value = makeCustomValueVector()
+        filmPlaneBuilder?.updateWobbleTexture(settingsManager.current.enableWobble ? wobbleTexture : nil)
+
+        let fxState = makeFXState()
+        material.custom.value = SIMD4<Float>(Float(fxState.mask),
+                                             fxState.intensity,
+                                             fxState.param2,
+                                             fxState.param3)
+        filmPlaneBuilder?.updateFXState(fxState)
     }
 
-    private func makeCustomValueVector() -> SIMD4<Float> {
+    private func makeFXState() -> FilmMaterial.FXState {
         let fx = settingsManager.current.visualFX
         var packedMask: UInt32 = settingsManager.current.enableSeamSoftening ? (1 << 7) : 0
 
@@ -170,13 +180,16 @@ final class ARCoordinator: NSObject, ObservableObject {
         let param2 = fx.enabled ? fx.param2 : 0.0
         let param3 = fx.enabled ? fx.param3 : 0.0
 
-        return SIMD4<Float>(Float(packedMask), intensity, param2, param3)
+        return FilmMaterial.FXState(mask: packedMask,
+                                    intensity: intensity,
+                                    param2: param2,
+                                    param3: param3)
     }
 
     // MARK: - Session Lifecycle
 
     /// Start a fresh AR session (no world map)
-    func run(in arView: ARView) {
+    @MainActor func run(in arView: ARView) {
         self.arView = arView
 
         let config = ARWorldTrackingConfiguration()
@@ -204,7 +217,7 @@ final class ARCoordinator: NSObject, ObservableObject {
     }
 
     /// Load persisted ARWorldMap and bubbles, then run session
-    func loadStateAndRun(in arView: ARView) {
+    @MainActor func loadStateAndRun(in arView: ARView) {
         self.arView = arView
 
         let config = ARWorldTrackingConfiguration()
@@ -247,25 +260,28 @@ final class ARCoordinator: NSObject, ObservableObject {
 
     /// Save current ARWorldMap and bubble anchors to disk
     func saveState() {
-        guard let arView = arView else { return }
-
-        arView.session.getCurrentWorldMap { [weak self] map, error in
+        guard let session = arView?.session else { return }
+        session.getCurrentWorldMap { [weak self] map, _ in
             guard let self = self, let map = map else {
-                print("Failed to get world map: \(String(describing: error))")
+                print("Failed to get world map")
                 return
             }
-
-            // Save world map
-            if let mapData = try? NSKeyedArchiver.archivedData(withRootObject: map, requiringSecureCoding: true) {
-                try? mapData.write(to: self.worldMapURL)
-                print("✅ Saved world map")
+            Task { @MainActor in
+                self.persistState(with: map)
             }
+        }
+    }
 
-            // Save session (bubbles + trail slices)
-            if let sessionData = try? JSONEncoder().encode(self.sessionState) {
-                try? sessionData.write(to: self.sessionURL)
-                print("✅ Saved session (\(self.sessionState.bubbles.count) bubbles + \(self.sessionState.trailSlices.count) slices)")
-            }
+    @MainActor
+    private func persistState(with map: ARWorldMap) {
+        if let mapData = try? NSKeyedArchiver.archivedData(withRootObject: map, requiringSecureCoding: true) {
+            try? mapData.write(to: worldMapURL)
+            print("✅ Saved world map")
+        }
+
+        if let sessionData = try? JSONEncoder().encode(sessionState) {
+            try? sessionData.write(to: sessionURL)
+            print("✅ Saved session (\(sessionState.bubbles.count) bubbles + \(sessionState.trailSlices.count) slices)")
         }
     }
 
@@ -691,18 +707,13 @@ private extension ARCoordinator {
 // MARK: - ARSessionDelegate
 
 extension ARCoordinator: ARSessionDelegate {
-    func session(_ session: ARSession, didUpdate frame: ARFrame) {
-        // Update motion coupling
+    nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        // Update motion coupling (non-isolated)
         motionCoupler.update(from: frame)
         if motionCoupler.detectJolt() {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.joltFeedbackGenerator.impactOccurred()
             }
-        }
-
-        if settingsManager.current.enableWobble,
-           let grid = wobbleGrid {
-            grid.update(dt: 1.0 / 60.0, externalAcceleration: motionCoupler.accelSmoothed2D)
         }
 
         let cameraTransform = frame.camera.transform
@@ -712,22 +723,34 @@ extension ARCoordinator: ARSessionDelegate {
             cameraTransform.columns.3.z
         )
 
-        if let movedTiles = tileManager?.updateTilePositions(cameraPosition: cameraPosition),
-           !movedTiles.isEmpty {
-            removeCacheMeshes(for: movedTiles)
+        // Dispatch main-actor work to main thread
+        Task { @MainActor in
+            if self.settingsManager.current.enableWobble,
+               let grid = self.wobbleGrid {
+                grid.update(dt: 1.0 / 60.0, externalAcceleration: self.motionCoupler.accelSmoothed2D)
+            }
+        }
+
+        Task { @MainActor in
+            if let movedTiles = self.tileManager?.updateTilePositions(cameraPosition: cameraPosition),
+               !movedTiles.isEmpty {
+                self.removeCacheMeshes(for: movedTiles)
+            }
         }
 
         // Update trail if tracking
-        if pathTracker.tracking {
-            updateTrail()
+        Task { @MainActor in
+            if self.pathTracker.tracking {
+                self.updateTrail()
 
-            framesSinceExtraction += 1
-            if framesSinceExtraction >= extractionCadence {
-                extractCacheMeshes()
-                framesSinceExtraction = 0
+                self.framesSinceExtraction += 1
+                if self.framesSinceExtraction >= self.extractionCadence {
+                    self.extractCacheMeshes()
+                    self.framesSinceExtraction = 0
+                }
+            } else if self.framesSinceExtraction != 0 {
+                self.framesSinceExtraction = 0
             }
-        } else if framesSinceExtraction != 0 {
-            framesSinceExtraction = 0
         }
 
         // Determine tracking state
@@ -745,74 +768,70 @@ extension ARCoordinator: ARSessionDelegate {
 
         let newIsReady = trackingOK && mappedOK
 
-        // Update status message
-        var newMessage = statusMessage
-        if !trackingOK {
-            switch frame.camera.trackingState {
-            case .limited(let reason):
-                switch reason {
-                case .excessiveMotion:
-                    newMessage = "Move slower"
-                case .insufficientFeatures:
-                    newMessage = "Find a textured area"
-                case .initializing:
-                    newMessage = "Initializing tracking..."
-                case .relocalizing:
-                    newMessage = "Relocalizing..."
-                @unknown default:
-                    newMessage = "Tracking limited"
+        Task { @MainActor in
+            // Update status message
+            var newMessage = self.statusMessage
+            if !trackingOK {
+                switch frame.camera.trackingState {
+                case .limited(let reason):
+                    switch reason {
+                    case .excessiveMotion:
+                        newMessage = "Move slower"
+                    case .insufficientFeatures:
+                        newMessage = "Find a textured area"
+                    case .initializing:
+                        newMessage = "Initializing tracking..."
+                    case .relocalizing:
+                        newMessage = "Relocalizing..."
+                    @unknown default:
+                        newMessage = "Tracking limited"
+                    }
+                case .notAvailable:
+                    newMessage = "Tracking unavailable"
+                default:
+                    break
                 }
-            case .notAvailable:
-                newMessage = "Tracking unavailable"
-            default:
-                break
+            } else if !mappedOK {
+                switch frame.worldMappingStatus {
+                case .notAvailable:
+                    newMessage = "Mapping not available"
+                case .limited:
+                    newMessage = "Keep scanning environment..."
+                default:
+                    break
+                }
+            } else {
+                newMessage = "Ready to blow bubbles!"
             }
-        } else if !mappedOK {
-            switch frame.worldMappingStatus {
-            case .notAvailable:
-                newMessage = "Mapping not available"
-            case .limited:
-                newMessage = "Keep scanning environment..."
-            default:
-                break
-            }
-        } else {
-            newMessage = "Ready to blow bubbles!"
-        }
 
-        // Publish on main thread
-        DispatchQueue.main.async { [weak self] in
-            self?.isReady = newIsReady
-            self?.statusMessage = newMessage
-        }
+            self.isReady = newIsReady
+            self.statusMessage = newMessage
 
-        // If we just became ready and have saved bubbles but no entities, reconstruct
-        if newIsReady,
-           !sessionState.bubbles.isEmpty,
-           bubbleEntities.isEmpty {
-            DispatchQueue.main.async { [weak self] in
-                self?.reconstructAllBubbles()
+            if newIsReady,
+               !self.sessionState.bubbles.isEmpty,
+               self.bubbleEntities.isEmpty {
+                self.reconstructAllBubbles()
             }
         }
     }
 
-    func session(_ session: ARSession, didFailWithError error: Error) {
-        DispatchQueue.main.async { [weak self] in
-            self?.statusMessage = "Session failed: \(error.localizedDescription)"
-            self?.isReady = false
+    nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
+        Task { @MainActor in
+            self.statusMessage = "Session failed: \(error.localizedDescription)"
+            self.isReady = false
         }
     }
 
-    func sessionWasInterrupted(_ session: ARSession) {
-        DispatchQueue.main.async { [weak self] in
-            self?.statusMessage = "Session interrupted"
-            self?.isReady = false
+    nonisolated func sessionWasInterrupted(_ session: ARSession) {
+        Task { @MainActor in
+            self.statusMessage = "Session interrupted"
+            self.isReady = false
         }
     }
 
-    func sessionInterruptionEnded(_ session: ARSession) {
-        DispatchQueue.main.async { [weak self] in
-            self?.statusMessage = "Resuming session..."
+    nonisolated func sessionInterruptionEnded(_ session: ARSession) {
+        Task { @MainActor in
+            self.statusMessage = "Resuming session..."
         }
     }
 }

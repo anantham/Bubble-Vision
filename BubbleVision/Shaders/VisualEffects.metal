@@ -6,7 +6,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-static inline float3 fx_hsv2rgb(float h, float s, float v) {
+[[maybe_unused]] static inline float3 fx_hsv2rgb(float h, float s, float v) {
     float3 k = float3(1.0, 2.0/3.0, 1.0/3.0);
     float3 p = abs(fract(h + k) * 6.0 - 3.0);
     return v * mix(float3(1.0), clamp(p - 1.0, 0.0, 1.0), s);
@@ -50,13 +50,13 @@ static inline float3 fx_noise(float3 color, float2 uv, float intensity) {
     return mix(color, color * (0.8 + 0.2 * n), intensity);
 }
 
-static inline float3 apply_visual_effects(float3 color,
-                                          float2 uv,
-                                          float fresnel,
-                                          uint mask,
-                                          float intensity,
-                                          float param2,
-                                          float param3) {
+[[maybe_unused]] static inline float3 apply_visual_effects(float3 color,
+                                                           float2 uv,
+                                                           float fresnel,
+                                                           uint mask,
+                                                           float intensity,
+                                                           float param2,
+                                                           float param3) {
     if (mask == 0) { return color; }
 
     if (mask & (1u << 0)) {
@@ -74,4 +74,3 @@ static inline float3 apply_visual_effects(float3 color,
 
     return saturate(color);
 }
-

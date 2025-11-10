@@ -12,6 +12,28 @@ struct TileFrame {
     var epoch: UInt32               // Incremented when repositioned
 }
 
+/// Matches Metal's TileFrameParams layout (96 bytes)
+private struct TileFrameUniforms {
+    var origin = SIMD4<Float>(repeating: 0)
+    var axisX = SIMD4<Float>(1, 0, 0, 0)
+    var axisY = SIMD4<Float>(0, 1, 0, 0)
+    var axisZ = SIMD4<Float>(0, 0, 1, 0)
+    var misc = SIMD4<Float>(0, 0, 0, 0)
+    var pad = SIMD4<Float>(repeating: 0)
+
+    init(frame: TileFrame) {
+        origin = SIMD4(frame.originWS, 0)
+        axisX = SIMD4(frame.axisWS.columns.0, 0)
+        axisY = SIMD4(frame.axisWS.columns.1, 0)
+        axisZ = SIMD4(frame.axisWS.columns.2, 0)
+        misc = SIMD4(frame.voxelSize,
+                     Float(frame.dim),
+                     Float(frame.epoch),
+                     0)
+        pad = .zero
+    }
+}
+
 /// Single tile in the sparse cache. Holds frame info and 3D texture storage.
 struct Tile {
     var frame: TileFrame
@@ -113,8 +135,8 @@ final class TileManager {
         computeEncoder.setComputePipelineState(pipeline)
         computeEncoder.setTexture(texture, index: 0)
 
-        var tileParams = tiles[index].frame
-        computeEncoder.setBytes(&tileParams, length: MemoryLayout<TileFrame>.stride, index: 0)
+        var uniforms = TileFrameUniforms(frame: tiles[index].frame)
+        computeEncoder.setBytes(&uniforms, length: MemoryLayout<TileFrameUniforms>.stride, index: 0)
 
         let dim = Int(tiles[index].frame.dim)
         let gridSize = MTLSize(width: dim, height: dim, depth: dim)
@@ -220,10 +242,10 @@ final class TileManager {
 
             computeEncoder.setTexture(texture, index: 0)
 
-            var tileParams = tiles[index].frame
-            computeEncoder.setBytes(&tileParams, length: MemoryLayout<TileFrame>.stride, index: 0)
+            var uniforms = TileFrameUniforms(frame: tiles[index].frame)
+            computeEncoder.setBytes(&uniforms, length: MemoryLayout<TileFrameUniforms>.stride, index: 0)
 
-            let dim = Int(tileParams.dim)
+            let dim = Int(tiles[index].frame.dim)
             let gridSize = MTLSize(width: dim, height: dim, depth: dim)
             let threadsPerThreadgroup = MTLSize(width: 4, height: 4, depth: 4)
             computeEncoder.dispatchThreads(gridSize, threadsPerThreadgroup: threadsPerThreadgroup)
@@ -360,8 +382,9 @@ final class TileManager {
         computeEncoder.setBuffer(vertexBuffer, offset: 0, index: 0)
         computeEncoder.setBuffer(indexBuffer, offset: 0, index: 1)
 
-        var frame = tiles[tileIndex].frame
-        computeEncoder.setBytes(&frame, length: MemoryLayout<TileFrame>.stride, index: 2)
+        let frame = tiles[tileIndex].frame
+        var uniforms = TileFrameUniforms(frame: frame)
+        computeEncoder.setBytes(&uniforms, length: MemoryLayout<TileFrameUniforms>.stride, index: 2)
         computeEncoder.setBuffer(counterBuffer, offset: 0, index: 3)
         computeEncoder.setBuffer(counterBuffer, offset: MemoryLayout<UInt32>.stride, index: 4)
 

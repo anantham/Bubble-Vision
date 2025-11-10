@@ -56,12 +56,9 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     float opacity = 0.35;
 
     // Blend against camera distance for film plane.
-    float4x4 worldToView = params.uniforms().world_to_view();
-    float4x4 viewToWorld = inverse(worldToView);
-    float4 camColumn = viewToWorld.columns[3];
-    float3 cameraPos = (camColumn.xyz / camColumn.w);
     float3 worldPos = geo.world_position();
-    float distFromCamera = length(worldPos - cameraPos);
+    float4 viewPos = params.uniforms().world_to_view() * float4(worldPos, 1.0);
+    float distFromCamera = length(viewPos.xyz / max(viewPos.w, 1e-5));
     float blendFactor = smoothstep(0.5, 0.7, distFromCamera);  // 50-70cm transition
     float baseOpacityScale = mix(1.0, 1.0 - blendFactor, 1.0);
 

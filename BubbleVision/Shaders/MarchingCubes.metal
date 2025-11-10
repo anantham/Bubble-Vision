@@ -390,8 +390,8 @@ void marchingCubesTile(
     device atomic_uint* triCount [[buffer(4)]],
     uint3 cid [[thread_position_in_grid]]
 ) {
-    int dim = tile.dim;
-    if (cid.x >= dim - 1 || cid.y >= dim - 1 || cid.z >= dim - 1) {
+    uint dim = uint(tile.dim);
+    if (cid.x >= dim - 1u || cid.y >= dim - 1u || cid.z >= dim - 1u) {
         return;
     }
 
@@ -436,7 +436,7 @@ void marchingCubesTile(
 
     const uint maxVerts = 120000u;
 
-    for (uint i = 0; triTable[cubeIndex][i] != -1; i += 3) {
+    for (int i = 0; triTable[cubeIndex][i] != -1; i += 3) {
         uint base = atomic_fetch_add_explicit(vertCount, 3u, memory_order_relaxed);
         if (base >= maxVerts) {
             atomic_store_explicit(vertCount, maxVerts, memory_order_relaxed);
@@ -449,7 +449,7 @@ void marchingCubesTile(
         }
 
         for (uint j = 0; j < 3; ++j) {
-            int edgeIdx = triTable[cubeIndex][i + j];
+            int edgeIdx = triTable[cubeIndex][i + int(j)];
             float3 pos = vertList[edgeIdx];
             float3 normal = normList[edgeIdx];
             outVerts[base + j] = Vertex{pos, normal, float2(0.0, 0.0)};

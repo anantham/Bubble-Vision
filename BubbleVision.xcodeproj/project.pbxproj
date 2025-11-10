@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */; };
 		AA0001 /* BubbleVisionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001 /* BubbleVisionApp.swift */; };
 		AA0002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002 /* ContentView.swift */; };
 		AA0003 /* ARCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0003 /* ARCoordinator.swift */; };
@@ -16,7 +17,6 @@
 		AA0007 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB0007 /* Assets.xcassets */; };
 		AA0008 /* MotionCoupler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0009 /* MotionCoupler.swift */; };
 		AA0009 /* FilmPlane.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0010 /* FilmPlane.metal */; };
-		462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */; };
 		AA0011 /* PathTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0011 /* PathTracker.swift */; };
 		AA0012 /* TileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0012 /* TileManager.swift */; };
 		AA0013 /* TilePaint.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0013 /* TilePaint.metal */; };
@@ -28,9 +28,11 @@
 		AA0019 /* WobbleGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0019 /* WobbleGrid.swift */; };
 		AA001A /* WobbleDisplacement.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0020 /* WobbleDisplacement.metal */; };
 		AA001B /* VisualEffects.metal in Sources */ = {isa = PBXBuildFile; fileRef = BB0021 /* VisualEffects.metal */; };
+		AA001C /* FilmMaterial.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0022 /* FilmMaterial.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmPlaneBuilder.swift; sourceTree = "<group>"; };
 		BB0001 /* BubbleVisionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleVisionApp.swift; sourceTree = "<group>"; };
 		BB0002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BB0003 /* ARCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCoordinator.swift; sourceTree = "<group>"; };
@@ -41,8 +43,6 @@
 		BB0008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BB0009 /* MotionCoupler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionCoupler.swift; sourceTree = "<group>"; };
 		BB0010 /* FilmPlane.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = FilmPlane.metal; sourceTree = "<group>"; };
-		CC0001 /* BubbleVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BubbleVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmPlaneBuilder.swift; sourceTree = "<group>"; };
 		BB0011 /* PathTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathTracker.swift; sourceTree = "<group>"; };
 		BB0012 /* TileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TileManager.swift; sourceTree = "<group>"; };
 		BB0013 /* TilePaint.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = TilePaint.metal; sourceTree = "<group>"; };
@@ -54,6 +54,8 @@
 		BB0019 /* WobbleGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WobbleGrid.swift; sourceTree = "<group>"; };
 		BB0020 /* WobbleDisplacement.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = WobbleDisplacement.metal; sourceTree = "<group>"; };
 		BB0021 /* VisualEffects.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = VisualEffects.metal; sourceTree = "<group>"; };
+		BB0022 /* FilmMaterial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmMaterial.swift; sourceTree = "<group>"; };
+		CC0001 /* BubbleVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BubbleVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +87,7 @@
 				EE0006 /* Models */,
 				EE0008 /* Settings */,
 				EE0009 /* Physics */,
+				EE0010 /* Materials */,
 				EE0007 /* Shaders */,
 				BB0007 /* Assets.xcassets */,
 			);
@@ -160,6 +163,14 @@
 			path = Physics;
 			sourceTree = "<group>";
 		};
+		EE0010 /* Materials */ = {
+			isa = PBXGroup;
+			children = (
+				BB0022 /* FilmMaterial.swift */,
+			);
+			path = Materials;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -188,7 +199,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 2600;
+				LastUpgradeCheck = 2610;
 			};
 			buildConfigurationList = II0002 /* Build configuration list for PBXProject "BubbleVision" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -244,6 +255,7 @@
 				AA0016 /* AppSettings.swift in Sources */,
 				AA0017 /* VisualFXSettings.swift in Sources */,
 				AA0019 /* WobbleGrid.swift in Sources */,
+				AA001C /* FilmMaterial.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -323,6 +335,7 @@
 		JJ0003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -367,6 +380,7 @@
 		JJ0004 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;

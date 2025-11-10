@@ -45,10 +45,8 @@ final class SettingsManager: ObservableObject {
 
     /// Mutate settings on the main queue and schedule a debounced persistence update.
     func update(_ block: (inout AppSettings) -> Void) {
-        DispatchQueue.main.async {
-            block(&self.current)
-            self.scheduleSave()
-        }
+        block(&current)
+        scheduleSave()
     }
 
     private func scheduleSave() {
@@ -68,4 +66,3 @@ final class SettingsManager: ObservableObject {
         saveQueue.asyncAfter(deadline: .now() + .milliseconds(250), execute: workItem)
     }
 }
-

@@ -18,7 +18,7 @@ public final class FilmPlaneBuilder {
     private let device: MTLDevice
     private let apertureShape: ApertureShape
     private let library: MTLLibrary
-    private var filmMaterial: CustomMaterial?
+    private let materialWrapper: FilmMaterial
 
     // MARK: - Public Material Access
 
@@ -36,32 +36,8 @@ public final class FilmPlaneBuilder {
             throw MaterialError.libraryLoadFailed
         }
         self.library = lib
-
-        // Create custom material
-        self.filmMaterial = try createFilmMaterial()
-        if var baseMaterial = filmMaterial {
-            baseMaterial.custom.value = SIMD4<Float>(0, 0, 0, 0)
-            sharedMaterial = baseMaterial
-        }
-    }
-
-    private func createFilmMaterial() throws -> CustomMaterial {
-        let surfaceShader = CustomMaterial.SurfaceShader(
-            named: "filmPlane_fragment",
-            in: library
-        )
-
-        let geometryModifier = CustomMaterial.GeometryModifier(
-            named: "wobbleDisplacement_geometry",
-            in: library
-        )
-
-        // Using .lit model - iOS 26 API compatible alternative to .physicallyBased
-        return try CustomMaterial(
-            geometryModifier: geometryModifier,
-            surfaceShader: surfaceShader,
-            lightingModel: .lit
-        )
+        self.materialWrapper = try FilmMaterial(device: device, library: lib)
+        self.sharedMaterial = materialWrapper.baseMaterial
     }
 
     enum MaterialError: Error {
@@ -81,25 +57,29 @@ public final class FilmPlaneBuilder {
         let entity = ModelEntity(mesh: mesh)
 
         // Apply custom material
-        if var material = filmMaterial {
-            let cameraPosition = SIMD3<Float>(
-                cameraTransform.columns.3.x,
-                cameraTransform.columns.3.y,
-                cameraTransform.columns.3.z
-            )
-
-            material.custom.value = SIMD4<Float>(cameraPosition.x,
-                                                 cameraPosition.y,
-                                                 cameraPosition.z,
-                                                 1.0)
-            entity.model?.materials = [material]
-        }
+        let cameraPosition = SIMD3<Float>(
+            cameraTransform.columns.3.x,
+            cameraTransform.columns.3.y,
+            cameraTransform.columns.3.z
+        )
+        let material = materialWrapper.material(cameraPosition: cameraPosition, seamEnabled: true)
+        entity.model?.materials = [material]
 
         // Position at camera with z=0 offset (device space)
         // Film plane IS the screen, so it's at the camera position
         entity.transform = Transform(matrix: cameraTransform)
 
         return entity
+    }
+
+    // MARK: - Material Configuration Helpers
+
+    func updateFXState(_ state: FilmMaterial.FXState) {
+        materialWrapper.setFXState(state)
+    }
+
+    func updateWobbleTexture(_ texture: TextureResource?) {
+        materialWrapper.setWobbleTexture(texture)
     }
 
     // MARK: - Private Helpers

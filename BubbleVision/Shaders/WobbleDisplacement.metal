@@ -13,12 +13,13 @@ constexpr sampler wobbleSampler(coord::normalized,
 
 [[visible]]
 void wobbleDisplacement_geometry(realitykit::geometry_parameters params) {
-    auto customTex = params.textures().custom();
+    metal::texture2d<half> wobbleTex = params.textures().custom();
     float2 uv = params.geometry().uv0();
-    float2 displacement = float2(customTex.sample(wobbleSampler, uv).rg);
+    half4 sample = wobbleTex.sample(wobbleSampler, uv);
+    float2 displacement = float2(sample.rg);
 
     float displacementScale = 0.05f; // 5 cm max displacement
-    float3 offset = float3(displacement.x, displacement.y, 0.0f) * displacementScale;
+    float3 offset = float3(displacement, 0.0f) * displacementScale;
 
     params.geometry().set_model_position_offset(offset);
 }
