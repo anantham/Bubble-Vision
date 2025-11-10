@@ -55,6 +55,14 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     // Base opacity
     float opacity = 0.35;
 
+    // Read vertex alpha from COLOR attribute (seam band)
+    float vertexAlpha = 1.0;
+    #if __METAL_VERSION__ >= 230
+    if (geo.has_vertex_color()) {
+        vertexAlpha = geo.vertex_color().a;
+    }
+    #endif
+
     // Blend against camera distance for film plane.
     float3 worldPos = geo.world_position();
     float4 viewPos = params.uniforms().world_to_view() * float4(worldPos, 1.0);
@@ -79,7 +87,9 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     float roughnessBoost = seamFactor * 0.22;
     roughness = clamp(roughness + roughnessBoost, 0.0, 1.0);
     float seamOpacityScale = mix(1.0, 1.0 - seamFactor * 0.75, seamStrength);
-    float opacityScale = baseOpacityScale * seamOpacityScale;
+
+    // Apply vertex alpha for geometry-driven seam bands (Phase 3)
+    float opacityScale = baseOpacityScale * seamOpacityScale * vertexAlpha;
     finalColor = mix(finalColor, mix(finalColor, float3(1.0), 0.1), seamFactor * 0.4);
 
     if (mask != 0) {

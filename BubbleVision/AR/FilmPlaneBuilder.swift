@@ -72,6 +72,184 @@ public final class FilmPlaneBuilder {
         return entity
     }
 
+    // MARK: - Edge Rim Pass
+
+    /// Create edge rim entity for crack hiding (separate ModelEntity with additive shader)
+    /// - Parameter cameraTransform: ARCamera transform
+    /// - Returns: Optional ModelEntity with rim geometry and additive shader
+    public func createEdgeRim(cameraTransform: simd_float4x4) -> ModelEntity? {
+        guard let rimMesh = try? generateRimMesh() else {
+            return nil
+        }
+
+        // Create entity
+        let entity = ModelEntity(mesh: rimMesh)
+
+        // Apply rim material with additive blending
+        if let rimMaterial = try? createRimMaterial() {
+            entity.model?.materials = [rimMaterial]
+        }
+
+        // Position at camera (same as film plane)
+        entity.transform = Transform(matrix: cameraTransform)
+
+        return entity
+    }
+
+    private func generateRimMesh() throws -> MeshResource {
+        // Thin rim geometry at edge only
+        switch apertureShape {
+        case .circle(let radius):
+            return try generateCircleRimMesh(radius: radius)
+        case .roundedRect(let w, let h, let r):
+            return try generateRectRimMesh(width: w, height: h)
+        case .fullScreen:
+            return try generateRectRimMesh(width: 0.25, height: 0.18)
+        }
+    }
+
+    private func generateCircleRimMesh(radius: Float) throws -> MeshResource {
+        // Very thin rim strip at outer edge
+        let segments = 32
+        let rimWidth: Float = 0.01  // 1cm rim width
+        let innerRadius = radius - rimWidth
+        let outerRadius = radius
+
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+        var uvs: [SIMD2<Float>] = []
+        var colors: [SIMD4<Float>] = []
+        var indices: [UInt32] = []
+
+        // Generate rim vertices
+        for i in 0...segments {
+            let angle = Float(i) * (2.0 * .pi / Float(segments))
+            let cosA = cos(angle)
+            let sinA = sin(angle)
+
+            // Inner rim vertex (less alpha)
+            positions.append(SIMD3<Float>(cosA * innerRadius, sinA * innerRadius, 0))
+            normals.append(SIMD3<Float>(0, 0, 1))
+            let uInner = 0.5 + 0.5 * cosA * 0.9
+            let vInner = 0.5 + 0.5 * sinA * 0.9
+            uvs.append(SIMD2<Float>(uInner, vInner))
+            colors.append(SIMD4<Float>(1, 1, 1, 0.5))
+
+            // Outer rim vertex (full alpha)
+            positions.append(SIMD3<Float>(cosA * outerRadius, sinA * outerRadius, 0))
+            normals.append(SIMD3<Float>(0, 0, 1))
+            let uOuter = 0.5 + 0.5 * cosA
+            let vOuter = 0.5 + 0.5 * sinA
+            uvs.append(SIMD2<Float>(uOuter, vOuter))
+            colors.append(SIMD4<Float>(1, 1, 1, 1.0))
+        }
+
+        // Generate indices (triangle strip)
+        for i in 0..<segments {
+            let base = UInt32(i * 2)
+            indices.append(base)
+            indices.append(base + 2)
+            indices.append(base + 1)
+
+            indices.append(base + 1)
+            indices.append(base + 2)
+            indices.append(base + 3)
+        }
+
+        var descriptor = MeshDescriptor()
+        descriptor.positions = MeshBuffer(positions)
+        descriptor.normals = MeshBuffer(normals)
+        descriptor.textureCoordinates = MeshBuffer(uvs)
+        descriptor.colors = MeshBuffer(colors)
+        descriptor.primitives = .triangles(indices)
+
+        return try MeshResource.generate(from: [descriptor])
+    }
+
+    private func generateRectRimMesh(width: Float, height: Float) throws -> MeshResource {
+        // Simplified rect rim (can enhance later)
+        let rimWidth: Float = 0.01
+        let w = width / 2.0
+        let h = height / 2.0
+
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+        var colors: [SIMD4<Float>] = []
+        var indices: [UInt32] = []
+
+        // Inner rect
+        let iw = w - rimWidth
+        let ih = h - rimWidth
+
+        // Outer vertices
+        let outer: [SIMD3<Float>] = [
+            SIMD3(-w, -h, 0), SIMD3(w, -h, 0), SIMD3(w, h, 0), SIMD3(-w, h, 0)
+        ]
+
+        // Inner vertices
+        let inner: [SIMD3<Float>] = [
+            SIMD3(-iw, -ih, 0), SIMD3(iw, -ih, 0), SIMD3(iw, ih, 0), SIMD3(-iw, ih, 0)
+        ]
+
+        // Build rim quad strips
+        for i in 0..<4 {
+            let next = (i + 1) % 4
+            positions.append(inner[i])
+            positions.append(outer[i])
+            positions.append(inner[next])
+            positions.append(outer[next])
+
+            for _ in 0..<4 {
+                normals.append(SIMD3(0, 0, 1))
+            }
+
+            colors.append(SIMD4(1, 1, 1, 0.5))
+            colors.append(SIMD4(1, 1, 1, 1.0))
+            colors.append(SIMD4(1, 1, 1, 0.5))
+            colors.append(SIMD4(1, 1, 1, 1.0))
+
+            let base = UInt32(i * 4)
+            indices.append(base)
+            indices.append(base + 1)
+            indices.append(base + 2)
+
+            indices.append(base + 2)
+            indices.append(base + 1)
+            indices.append(base + 3)
+        }
+
+        var descriptor = MeshDescriptor()
+        descriptor.positions = MeshBuffer(positions)
+        descriptor.normals = MeshBuffer(normals)
+        descriptor.colors = MeshBuffer(colors)
+        descriptor.primitives = .triangles(indices)
+
+        return try MeshResource.generate(from: [descriptor])
+    }
+
+    private func createRimMaterial() throws -> CustomMaterial {
+        let surfaceShader = CustomMaterial.SurfaceShader(
+            named: "edgeRim_fragment",
+            in: library
+        )
+
+        let geometryModifier = CustomMaterial.GeometryModifier(
+            named: "edgeRim_geometry",
+            in: library
+        )
+
+        var material = try CustomMaterial(
+            surfaceShader: surfaceShader,
+            geometryModifier: geometryModifier,
+            lightingModel: .unlit
+        )
+
+        // Configure for additive-like blending
+        material.blending = .transparent(opacity: 1.0)
+
+        return material
+    }
+
     // MARK: - Material Configuration Helpers
 
     func updateFXState(_ state: FilmMaterial.FXState) {
@@ -96,14 +274,39 @@ public final class FilmPlaneBuilder {
     }
 
     private func generateCircleMesh(radius: Float) throws -> MeshResource {
-        // Simple tessellated circle in XY plane (z=0)
+        // Circle with edge band for seam softening
         let segments = 32
-        var positions: [SIMD3<Float>] = [SIMD3<Float>(0, 0, 0)]  // center
-        var normals: [SIMD3<Float>] = [SIMD3<Float>(0, 0, 1)]
-        var uvs: [SIMD2<Float>] = [SIMD2<Float>(0.5, 0.5)]
+        let seamBandWidth: Float = 0.02  // 2cm seam band
+
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+        var uvs: [SIMD2<Float>] = []
+        var alphas: [Float] = []
         var indices: [UInt32] = []
 
-        // Generate circle vertices
+        // Center vertex (full opacity)
+        positions.append(SIMD3<Float>(0, 0, 0))
+        normals.append(SIMD3<Float>(0, 0, 1))
+        uvs.append(SIMD2<Float>(0.5, 0.5))
+        alphas.append(1.0)
+
+        // Inner ring vertices (full opacity at 70% radius)
+        let innerRadius = radius * 0.7
+        for i in 0...segments {
+            let angle = Float(i) * (2.0 * .pi / Float(segments))
+            let x = cos(angle) * innerRadius
+            let y = sin(angle) * innerRadius
+
+            positions.append(SIMD3<Float>(x, y, 0))
+            normals.append(SIMD3<Float>(0, 0, 1))
+
+            let u = 0.5 + 0.5 * cos(angle) * 0.7
+            let v = 0.5 + 0.5 * sin(angle) * 0.7
+            uvs.append(SIMD2<Float>(u, v))
+            alphas.append(1.0)
+        }
+
+        // Outer ring vertices (quadratic falloff)
         for i in 0...segments {
             let angle = Float(i) * (2.0 * .pi / Float(segments))
             let x = cos(angle) * radius
@@ -115,21 +318,49 @@ public final class FilmPlaneBuilder {
             let u = 0.5 + 0.5 * cos(angle)
             let v = 0.5 + 0.5 * sin(angle)
             uvs.append(SIMD2<Float>(u, v))
+
+            // Quadratic falloff: alpha = (1 - t)^2 where t ∈ [0,1]
+            let t: Float = 1.0  // At outer edge, fully transparent
+            let alpha = (1.0 - t) * (1.0 - t)
+            alphas.append(alpha)
         }
 
-        // Generate triangle fan indices
+        // Generate indices: center to inner ring
         for i in 0..<segments {
             indices.append(0)
             indices.append(UInt32(i + 1))
             indices.append(UInt32(i + 2))
         }
 
-        // Build mesh descriptor
+        // Generate indices: inner ring to outer ring (seam band)
+        let innerStart = UInt32(1)
+        let outerStart = UInt32(segments + 2)
+        for i in 0..<segments {
+            let i0 = innerStart + UInt32(i)
+            let i1 = innerStart + UInt32(i + 1)
+            let o0 = outerStart + UInt32(i)
+            let o1 = outerStart + UInt32(i + 1)
+
+            // Two triangles per quad
+            indices.append(i0)
+            indices.append(o0)
+            indices.append(i1)
+
+            indices.append(i1)
+            indices.append(o0)
+            indices.append(o1)
+        }
+
+        // Build mesh descriptor with vertex colors for seam alpha
         var descriptor = MeshDescriptor()
         descriptor.positions = MeshBuffer(positions)
         descriptor.normals = MeshBuffer(normals)
         descriptor.textureCoordinates = MeshBuffer(uvs)
         descriptor.primitives = .triangles(indices)
+
+        // Use COLOR semantic for vertex alpha (pack into RGBA)
+        var colors: [SIMD4<Float>] = alphas.map { SIMD4<Float>(1, 1, 1, $0) }
+        descriptor.colors = MeshBuffer(colors)
 
         return try MeshResource.generate(from: [descriptor])
     }
