@@ -48,12 +48,12 @@ docs/
 - [x] Document all sections
 - [x] Create implementation files
 
-### 🔜 Phase 1: Foundation (Week 1)
+### ✅ Phase 1: Foundation (Week 1)
 **Goal:** Film plane + basic trail geometry
 
 **Files to create:**
 - `BubbleVision/AR/MotionCoupler.swift`
-- `BubbleVision/Materials/FilmMaterial.swift`
+- `BubbleVision/Materials/FilmMaterial.swift` (added)
 - `BubbleVision/Shaders/FilmPlane.metal`
 
 **Success criteria:**
@@ -64,7 +64,7 @@ docs/
 
 **Reference:** Main Design Doc § 10.1
 
-### 🔜 Phase 2: Volume Cache (Week 2)
+### ✅ Phase 2: Volume Cache (Week 2)
 **Goal:** SDF cache + marching cubes
 
 **Files to create:**
@@ -79,13 +79,16 @@ docs/
 
 **Reference:** Main Design Doc § 10.2
 
-### ✅ Phase 3: Seam Softening (Week 3)
+### 🔜 Phase 3: Seam Softening (Week 3)
 **Goal:** Smooth junctions
 
-**Deliverables:**
+**Current status:**
 - [x] Slice orientation interpolation to reduce abrupt rotation changes
 - [x] Shader-based edge fade with dynamic roughness boost
 - [x] Seam softening toggle exposed in settings
+- [ ] TrailBuilder + SliceRing GPU buffer upload
+- [ ] `SeamSoftener.metal` mini-SDF integration
+- [ ] Diagnostics / verification steps
 
 **Reference:** Main Design Doc § 10.3
 

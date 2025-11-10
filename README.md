@@ -150,6 +150,25 @@ BubbleVision/
 
 ---
 
+## Regression Checklist (Phases 1‑3)
+
+Use this quick list when manually testing; see `TESTING.md` for full scripts.
+
+| Area | Instrumentation | Manual Steps |
+|------|-----------------|--------------|
+| **Phase 1 – Film plane foundation** | `arView.debugOptions = [.showFeaturePoints, .showStatistics]` to watch mapping/FPS. | Launch → wait for “Ready to blow bubbles!” → place a pane → confirm button gating works and FPS ≥55. |
+| **Phase 2 – Volume cache & persistence** | Xcode GPU frame capture (`Product ▸ Capture GPU Frame`) + Console logs from `TileManager` (“Allocated tile…”). | Paint 10 segments while walking → background app → relaunch in same room → ensure tiles reload and bubbles reappear. |
+| **Phase 3 – Seam smoothing heuristics** | Inspect cache mesh normals in GPU capture, watch status text for seam toggle. | Paint a curved trail, walk toward/away: near film fades <0.5 m, cache mesh stays solid. Check `Settings ▸ Seam Softening` toggle. |
+
+For timing/perf, use:
+- Xcode **Debug Navigator → CPU/GPU** to note per-frame ms.
+- `arView.debugOptions = .showStatistics` for FPS.
+- Memory graph for tile allocation (<250 MB at 8 tiles).
+
+Record results in `TESTING.md`’s Regression Tests section.
+
+---
+
 ## Privacy & Permissions
 
 - **Camera access required:** declared in `Info.plist` `NSCameraUsageDescription`
