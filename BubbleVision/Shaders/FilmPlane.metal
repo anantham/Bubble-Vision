@@ -92,14 +92,15 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     float opacityScale = baseOpacityScale * seamOpacityScale * vertexAlpha;
     finalColor = mix(finalColor, mix(finalColor, float3(1.0), 0.1), seamFactor * 0.4);
 
+    // Apply Phase 4 visual FX if enabled
     if (mask != 0) {
         finalColor = apply_visual_effects(finalColor,
                                           uv,
                                           fresnel,
                                           mask,
-                                          fxIntensity,
-                                          fxParam2,
-                                          fxParam3);
+                                          fxIntensity,        // wobbleIntensity
+                                          fxParam2,           // gravityDotNormal
+                                          fxParam3);          // deviceTier
     }
 
     // Output

@@ -151,7 +151,8 @@ final class ARCoordinator: NSObject, ObservableObject {
     }
 
     @MainActor
-    private func configureMaterial(_ material: inout CustomMaterial) {
+    private func configureMaterial(_ material: inout CustomMaterial, cameraTransform: simd_float4x4? = nil) {
+        // Analytic wobble doesn't need texture (Phase 3), but keep for legacy mode
         if settingsManager.current.enableWobble, let wobbleTexture {
             material.custom.texture = .init(wobbleTexture)
         } else {
@@ -160,30 +161,87 @@ final class ARCoordinator: NSObject, ObservableObject {
 
         filmPlaneBuilder?.updateWobbleTexture(settingsManager.current.enableWobble ? wobbleTexture : nil)
 
-        let fxState = makeFXState()
-        material.custom.value = SIMD4<Float>(Float(fxState.mask),
-                                             fxState.intensity,
-                                             fxState.param2,
-                                             fxState.param3)
+        // Get FXState with gravity modulation (Phase 4)
+        let fxState = makeFXState(cameraTransform: cameraTransform)
+
+        // Pack parameters using Phase 3 layout
+        material.custom.value = SIMD4<Float>(
+            Float(fxState.mask),                // x: FX bitmask (bits 0-6)
+            fxState.wobbleIntensity,            // y: wobble intensity
+            fxState.gravityDotNormal,           // z: gravity · normal
+            fxState.deviceTier.rawValue         // w: device tier
+        )
+
         filmPlaneBuilder?.updateFXState(fxState)
     }
 
-    private func makeFXState() -> FilmMaterial.FXState {
+    private func makeFXState(cameraTransform: simd_float4x4? = nil) -> FilmMaterial.FXState {
         let fx = settingsManager.current.visualFX
-        var packedMask: UInt32 = settingsManager.current.enableSeamSoftening ? (1 << 7) : 0
 
+        // Build FX bitmask (bits 0-6, bit 7 reserved for seam)
+        var mask: UInt32 = 0
         if fx.enabled {
-            packedMask |= UInt32(fx.effectsMask)
+            mask = UInt32(fx.effectsMask)
         }
 
-        let intensity = fx.enabled ? fx.intensity : 0.0
-        let param2 = fx.enabled ? fx.param2 : 0.0
-        let param3 = fx.enabled ? fx.param3 : 0.0
+        // Wobble intensity from settings
+        let wobbleIntensity: Float = settingsManager.current.enableWobble ? 0.5 : 0.0
 
-        return FilmMaterial.FXState(mask: packedMask,
-                                    intensity: intensity,
-                                    param2: param2,
-                                    param3: param3)
+        // Compute gravity dot normal (gravity · film plane normal)
+        var gravityDotNormal: Float = 0.0
+        if let transform = cameraTransform {
+            // Film plane normal is the camera's forward direction (negative Z in camera space)
+            let cameraForward = normalize(SIMD3<Float>(
+                transform.columns.2.x,
+                transform.columns.2.y,
+                transform.columns.2.z
+            ))
+            // Gravity is in device space (from MotionCoupler)
+            let gravity = motionCoupler.gravityDS
+            gravityDotNormal = dot(gravity, cameraForward)
+        }
+
+        // Device tier detection
+        let deviceTier = detectDeviceTier()
+
+        return FilmMaterial.FXState(
+            mask: mask,
+            wobbleIntensity: wobbleIntensity,
+            gravityDotNormal: gravityDotNormal,
+            deviceTier: deviceTier
+        )
+    }
+
+    /// Detect device performance tier based on hardware
+    private func detectDeviceTier() -> FilmMaterial.DeviceTier {
+        #if targetEnvironment(simulator)
+        return .tierB  // Default to mid-tier for simulator
+        #else
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let modelCode = withUnsafePointer(to: &systemInfo.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+                String(validatingUTF8: $0) ?? ""
+            }
+        }
+
+        // High-end devices (Tier A)
+        if modelCode.contains("iPhone15")  // iPhone 14 Pro/Pro Max
+            || modelCode.contains("iPhone16")  // iPhone 15 Pro/Pro Max
+            || modelCode.contains("iPad14")     // iPad Pro M2
+            || modelCode.contains("iPad13,") {  // iPad Pro M1
+            return .tierA
+        }
+
+        // Low-end devices (Tier C)
+        if modelCode.contains("iPhone11")   // iPhone XS/XR
+            || modelCode.contains("iPhone12,1") {  // iPhone 11
+            return .tierC
+        }
+
+        // Default to mid-tier (Tier B)
+        return .tierB
+        #endif
     }
 
     // MARK: - Session Lifecycle
