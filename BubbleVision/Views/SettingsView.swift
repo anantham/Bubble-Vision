@@ -66,25 +66,18 @@ struct SettingsView: View {
             ))
 
             if settingsManager.current.visualFX.enabled {
-                effectToggle("Color Shift", flag: VisualFXSettings.colorShift)
-                effectToggle("Vignette", flag: VisualFXSettings.vignette)
-                effectToggle("Chromatic Aberration", flag: VisualFXSettings.chromaticAberration)
-                effectToggle("Scanlines", flag: VisualFXSettings.scanlines)
-                effectToggle("Glitch", flag: VisualFXSettings.glitch)
-                effectToggle("Edge Glow", flag: VisualFXSettings.edgeGlow)
-                effectToggle("Noise", flag: VisualFXSettings.noise)
+                // Phase 4: Updated FX toggles
+                effectToggle("✨ Sparkles", flag: VisualFXSettings.sparkles)
+                effectToggle("🌈 Chromatic Aberration", flag: VisualFXSettings.chromatic)
+                effectToggle("🔭 Camera Refraction", flag: VisualFXSettings.refraction)
+                effectToggle("💫 Rim Glow", flag: VisualFXSettings.rimGlow)
+                effectToggle("☁️ Dust Motes", flag: VisualFXSettings.dustMotes)
+                effectToggle("✨ Halo Bloom", flag: VisualFXSettings.haloBloom)
+                effectToggle("〰️ Micro Ripples", flag: VisualFXSettings.microRipples)
 
-                Slider(
-                    value: Binding(
-                        get: { settingsManager.current.visualFX.intensity },
-                        set: { value in
-                            settingsManager.update { $0.visualFX.intensity = value }
-                        }
-                    ),
-                    in: 0...1
-                ) {
-                    Text("Intensity")
-                }
+                Text("FX modulated by wobble intensity and gravity")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }

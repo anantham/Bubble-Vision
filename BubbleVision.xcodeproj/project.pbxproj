@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		462504D7791C42D0829598EC /* FilmPlaneBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */; };
+		045ED0FFF43B4A53A1B70DC6 /* SeamTopologyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 210C9788393146008D66A0F1 /* SeamTopologyCache.swift */; };
+		C045F14CACAD44A196B15487 /* SeamInstrumentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BB57F266AF4CDF96304B0E /* SeamInstrumentation.swift */; };
+		10B48388483D4ABB8562FA59 /* EdgeRim.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3A863232C623435793EC4947 /* EdgeRim.metal */; };
 		AA0001 /* BubbleVisionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0001 /* BubbleVisionApp.swift */; };
 		AA0002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002 /* ContentView.swift */; };
 		AA0003 /* ARCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0003 /* ARCoordinator.swift */; };
@@ -33,6 +36,9 @@
 
 /* Begin PBXFileReference section */
 		35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmPlaneBuilder.swift; sourceTree = "<group>"; };
+		210C9788393146008D66A0F1 /* SeamTopologyCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeamTopologyCache.swift; sourceTree = "<group>"; };
+		51BB57F266AF4CDF96304B0E /* SeamInstrumentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeamInstrumentation.swift; sourceTree = "<group>"; };
+		3A863232C623435793EC4947 /* EdgeRim.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = EdgeRim.metal; sourceTree = "<group>"; };
 		BB0001 /* BubbleVisionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleVisionApp.swift; sourceTree = "<group>"; };
 		BB0002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BB0003 /* ARCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCoordinator.swift; sourceTree = "<group>"; };
@@ -120,6 +126,9 @@
 				BB0012 /* TileManager.swift */,
 				35002B0981ED452CA80E098D /* FilmPlaneBuilder.swift */,
 				BB0011 /* PathTracker.swift */,
+				210C9788393146008D66A0F1 /* SeamTopologyCache.swift */,
+				51BB57F266AF4CDF96304B0E /* SeamInstrumentation.swift */,
+			
 			);
 			path = AR;
 			sourceTree = "<group>";
@@ -143,6 +152,8 @@
 				BB0014 /* MarchingCubes.metal */,
 				BB0020 /* WobbleDisplacement.metal */,
 				BB0021 /* VisualEffects.metal */,
+				3A863232C623435793EC4947 /* EdgeRim.metal */,
+			
 			);
 			path = Shaders;
 			sourceTree = "<group>";
@@ -256,7 +267,10 @@
 				AA0017 /* VisualFXSettings.swift in Sources */,
 				AA0019 /* WobbleGrid.swift in Sources */,
 				AA001C /* FilmMaterial.swift in Sources */,
-			);
+			
+				045ED0FFF43B4A53A1B70DC6 /* SeamTopologyCache.swift in Sources */,
+				C045F14CACAD44A196B15487 /* SeamInstrumentation.swift in Sources */,
+				10B48388483D4ABB8562FA59 /* EdgeRim.metal in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */

@@ -150,6 +150,67 @@ BubbleVision/
 
 ---
 
+## Phase 3: RealityKit-Native Seam Bands
+
+**Approach:** Geometry-driven seam softening within RealityKit constraints
+
+### Components
+
+1. **Vertex Alpha Seam Bands** (`FilmPlaneBuilder.swift:98-187`)
+   - Extrudes 1–2 vertex strips along slice edges (inner ring at 70% radius, outer at 100%)
+   - Quadratic falloff alphas: `alpha = (1-t)²` where t=1 at outer edge
+   - Packed into COLOR attribute, read in shader via `geo.vertex_color().a`
+
+2. **CPU Topology Cache** (`SeamTopologyCache.swift`)
+   - Tracks adjacent-slice pairs within 5cm threshold
+   - Marks "dirty" seams when distance changes >5mm
+   - Throttled refinement at 30 Hz (max 32 seams/update)
+
+3. **Edge Rim Pass** (`EdgeRim.metal`, `FilmPlaneBuilder.swift:75-251`)
+   - Separate ModelEntity with thin additive rim shader
+   - 0.5mm depth bias prevents z-fighting
+   - Premultiplied alpha for subtle crack hiding
+
+4. **Analytic Wobble** (`WobbleDisplacement.metal:14-59`)
+   - Sum of 3 sine waves (1 Hz, 2.5 Hz, 5 Hz) - no texture uploads
+   - Modulated by gravity via `custom_parameter.z`
+   - 2cm max displacement, center falloff
+
+5. **FX Packing** (`FilmMaterial.swift:9-15`)
+   ```
+   custom_parameter (SIMD4<Float>):
+   .x = bitmask (bit 7: seam, bits 0-6: FX)
+   .y = wobble intensity (0.0-2.0)
+   .z = gravity · normal (-1.0 to 1.0)
+   .w = device tier (0=A, 1=B, 2=C)
+   ```
+
+6. **Instrumentation** (`SeamInstrumentation.swift`)
+   - EMA-smoothed metrics (α=0.1): FPS, mesh update duration, refinement rate
+   - Safety thresholds: FPS ≥55, mesh updates <1.5ms
+   - Debug modes: seam-only, topology overlay, dirty seams, alpha heatmap
+
+### Acceptance Criteria
+
+| Metric | Threshold | Instrumentation |
+|--------|-----------|----------------|
+| **No visible cracks** | Zero gaps >1 pixel at 1m distance | Visual inspection + edge rim pass |
+| **Mesh update cost** | <1.5 ms per MeshResource.replace() | `SeamInstrumentation.meshUpdateDuration` |
+| **Refinement rate** | ≤30 Hz (throttled) | `SeamInstrumentation.refinementRate` |
+| **FPS maintenance** | ≥55 FPS with 20 slices | `arView.debugOptions = .showStatistics` |
+| **Dirty seam backlog** | <10% of total seams | `SeamInstrumentation.dirtySeams / totalSeams` |
+
+### Failure Cookbook
+
+| Symptom | Likely Cause | Remediation |
+|---------|--------------|-------------|
+| Visible halo around edges | Vertex alpha falloff too steep | Increase seam band width 2cm→3cm in `FilmPlaneBuilder.swift:101` |
+| Flicker during movement | Mesh updates not throttled | Verify 30 Hz cap in `SeamTopologyCache.swift:27` |
+| Cracks at sharp angles | Rim pass insufficient | Increase rim width or depth bias in `EdgeRim.metal:56` |
+| FPS <55 | Too many refinements/frame | Reduce `maxSeamsPerUpdate` from 32→16 in `SeamTopologyCache.swift:30` |
+
+---
+
 ## Regression Checklist (Phases 1‑3)
 
 Use this quick list when manually testing; see `TESTING.md` for full scripts.
@@ -158,11 +219,12 @@ Use this quick list when manually testing; see `TESTING.md` for full scripts.
 |------|-----------------|--------------|
 | **Phase 1 – Film plane foundation** | `arView.debugOptions = [.showFeaturePoints, .showStatistics]` to watch mapping/FPS. | Launch → wait for “Ready to blow bubbles!” → place a pane → confirm button gating works and FPS ≥55. |
 | **Phase 2 – Volume cache & persistence** | Xcode GPU frame capture (`Product ▸ Capture GPU Frame`) + Console logs from `TileManager` (“Allocated tile…”). | Paint 10 segments while walking → background app → relaunch in same room → ensure tiles reload and bubbles reappear. |
-| **Phase 3 – Seam smoothing heuristics** | Inspect cache mesh normals in GPU capture, watch status text for seam toggle. | Paint a curved trail, walk toward/away: near film fades <0.5 m, cache mesh stays solid. Check `Settings ▸ Seam Softening` toggle. |
+| **Phase 3 – RK-native seam bands** | Enable `SeamInstrumentationHUD`, watch dirty seam counter + mesh update duration. | Paint curved trail → verify no cracks at 1m → check FPS ≥55 → toggle debug modes (seam-only, alpha heatmap) → confirm <1.5ms mesh updates. |
 
 For timing/perf, use:
 - Xcode **Debug Navigator → CPU/GPU** to note per-frame ms.
 - `arView.debugOptions = .showStatistics` for FPS.
+- `SeamInstrumentation` HUD for live seam metrics.
 - Memory graph for tile allocation (<250 MB at 8 tiles).
 
 Record results in `TESTING.md`’s Regression Tests section.
