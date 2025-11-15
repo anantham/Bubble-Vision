@@ -56,12 +56,7 @@ void filmPlane_fragment(realitykit::surface_parameters params) {
     float opacity = 0.35;
 
     // Read vertex alpha from COLOR attribute (seam band)
-    float vertexAlpha = 1.0;
-    #if __METAL_VERSION__ >= 230
-    if (geo.has_vertex_color()) {
-        vertexAlpha = geo.vertex_color().a;
-    }
-    #endif
+    float vertexAlpha = geo.color().a;
 
     // Blend against camera distance for film plane.
     float3 worldPos = geo.world_position();

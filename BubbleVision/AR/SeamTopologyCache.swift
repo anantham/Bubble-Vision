@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 import RealityKit
 import simd
 

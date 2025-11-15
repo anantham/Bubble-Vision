@@ -101,7 +101,7 @@ public final class FilmPlaneBuilder {
         switch apertureShape {
         case .circle(let radius):
             return try generateCircleRimMesh(radius: radius)
-        case .roundedRect(let w, let h, let r):
+        case .roundedRect(let w, let h, _):
             return try generateRectRimMesh(width: w, height: h)
         case .fullScreen:
             return try generateRectRimMesh(width: 0.25, height: 0.18)
@@ -397,8 +397,24 @@ public final class FilmPlaneBuilder {
         return try MeshResource.generate(from: [descriptor])
     }
 
-    private func generateFullScreenMesh() throws -> MeshResource {
+private func generateFullScreenMesh() throws -> MeshResource {
         // Full iPad screen dimensions (approximate for now)
         return try generateRoundedRectMesh(width: 0.25, height: 0.18, cornerRadius: 0.01)
+    }
+}
+
+// MARK: - MeshDescriptor helpers
+
+fileprivate enum MeshDescriptorSemantics {
+    static let vertexColor = MeshBuffers.Semantic<SIMD4<Float>>.custom(
+        name: "color",
+        type: SIMD4<Float>.self
+    )
+}
+
+fileprivate extension MeshDescriptor {
+    var colors: MeshBuffer<SIMD4<Float>>? {
+        get { self[MeshDescriptorSemantics.vertexColor] }
+        set { self[MeshDescriptorSemantics.vertexColor] = newValue }
     }
 }

@@ -13,12 +13,7 @@ void edgeRim_fragment(realitykit::surface_parameters params) {
     auto geo = params.geometry();
 
     // Read vertex alpha from COLOR attribute
-    float vertexAlpha = 1.0;
-    #if __METAL_VERSION__ >= 230
-    if (geo.has_vertex_color()) {
-        vertexAlpha = geo.vertex_color().a;
-    }
-    #endif
+    float vertexAlpha = geo.color().a;
 
     // UV distance from edge (0 at edge, 1 at center)
     float2 uv = geo.uv0();
@@ -53,9 +48,7 @@ void edgeRim_fragment(realitykit::surface_parameters params) {
 void edgeRim_geometry(realitykit::geometry_parameters params) {
     auto geo = params.geometry();
 
-    // Apply tiny offset along normal (0.5mm) to sit slightly above film plane
-    float3 offset = geo.model_normal() * 0.0005;  // 0.5mm
-    float3 newPosition = geo.model_position() + offset;
-
-    geo.set_model_position_offset(newPosition - geo.model_position());
+    // Apply tiny offset along the vertex normal (0.5mm) to sit slightly above film plane
+    float3 offset = geo.normal() * 0.0005;  // 0.5mm along model-space normal
+    geo.set_model_position_offset(offset);
 }
